@@ -1,0 +1,2 @@
+合并
+ffmpeg -i video.mp4 -i audio.mp3 -c copy output.mp4
