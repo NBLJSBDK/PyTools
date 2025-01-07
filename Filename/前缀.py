@@ -147,7 +147,11 @@ class PrefixApp(QWidget):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
-
+            
+            # 清空现有列表
+            self.file_list.clear()
+            
+            # 添加新文件
             for url in event.mimeData().urls():
                 file_path = url.toLocalFile()
                 if os.path.isfile(file_path):
