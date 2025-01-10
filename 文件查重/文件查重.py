@@ -31,7 +31,11 @@ def process_duplicates(size_map, duplicates_dir):
         os.makedirs(duplicates_dir)
     
     duplicate_groups = []
-    for size, files in size_map.items():
+    # 统计总的需要计算哈希的文件数量
+    total_files = sum(len(files) for files in size_map.values() if len(files) > 1)
+    processed_files = 0  # 已处理文件计数
+
+    for size,files in size_map.items():
         if len(files) < 2:
             continue  # 跳过只有一个文件的分组
         
@@ -42,6 +46,10 @@ def process_duplicates(size_map, duplicates_dir):
             if file_hash not in hash_map:
                 hash_map[file_hash] = []
             hash_map[file_hash].append(file)
+
+            # 更新处理进度
+            processed_files += 1
+            print(f"Hash已经处理({processed_files}/{total_files})")
         
         # 处理每组重复文件
         for file_list in hash_map.values():
@@ -77,7 +85,7 @@ def process_directories(directories):
             print(f"错误：路径无效或不是文件夹：{root_dir}")
             continue
         
-        duplicates_dir = os.path.join(root_dir, '待处理重复图片')
+        duplicates_dir = os.path.join(root_dir, '待处理重复文件')
         print(f"开始处理文件夹：{root_dir}")
         
         # 执行查重逻辑
