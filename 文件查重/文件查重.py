@@ -35,6 +35,7 @@ def process_duplicates(size_map, duplicates_dir):
     total_files = sum(len(files) for files in size_map.values() if len(files) > 1)
     processed_files = 0  # 已处理文件计数
 
+    # 生成重复文件树状结构文本并提示用户确认
     for size,files in size_map.items():
         if len(files) < 2:
             continue  # 跳过只有一个文件的分组
@@ -51,17 +52,31 @@ def process_duplicates(size_map, duplicates_dir):
             processed_files += 1
             print(f"Hash已经处理({processed_files}/{total_files})")
         
-        # 处理每组重复文件
+        # 生成重复文件树状结构文本
         for file_list in hash_map.values():
             if len(file_list) < 2:
                 continue
-            
+
             # 按创建时间排序，保留最早创建的文件
             file_list.sort(key=lambda x: os.path.getctime(x))
             duplicate_groups.append(file_list)
-            for duplicate in file_list[1:]:
+            
+    # 生成 duplicates_tree.txt 文件
+    tree_file = generate_duplicates_tree(duplicates_dir, duplicate_groups)
+    
+    # 打印并提示用户确认
+    print(f"组列表已生成，请确认后输入 Y 移动，N 取消操作。\n查看文件：{tree_file}")
+    user_input = input("请输入 Y 或 N: ").strip().lower()
+
+    # 根据用户输入决定是否移动文件
+    if user_input == 'y':
+        for group in duplicate_groups:
+            for duplicate in group[1:]:  # 跳过第一个文件（保留最早创建的）
                 new_path = os.path.join(duplicates_dir, os.path.basename(duplicate))
                 shutil.move(duplicate, new_path)
+        print("文件已移动！")
+    else:
+        print("操作已取消。")
     
     return duplicate_groups
 
@@ -75,6 +90,8 @@ def generate_duplicates_tree(duplicates_dir, duplicate_groups):
             for file in group:
                 f.write(f"  {file}\n")
             f.write("\n")
+
+    return tree_file
 
 
 def process_directories(directories):
@@ -90,8 +107,7 @@ def process_directories(directories):
         
         # 执行查重逻辑
         size_map = group_files_by_size(root_dir)
-        duplicate_groups = process_duplicates(size_map, duplicates_dir)
-        generate_duplicates_tree(duplicates_dir, duplicate_groups)
+        process_duplicates(size_map, duplicates_dir)
         
         print(f"查重完成！重复文件已移动到目录：{duplicates_dir}")
         print(f"详细重复信息已记录在 {os.path.join(duplicates_dir, 'duplicates_tree.txt')}")
