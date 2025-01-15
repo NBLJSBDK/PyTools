@@ -58,7 +58,13 @@ class DateCalculator(QWidget):
         else:
             # 计算两个日期之间的天数差
             days_diff = start_date.daysTo(end_date)
-            self.result_label.setText(f"从初始日期到目标日期相差 {days_diff} 天")
+    
+            # 计算相差的年数和天数
+            years = days_diff // 365  # 计算年数
+            remaining_days = days_diff % 365  # 计算剩余的天数
+    
+            # 输出结果
+            self.result_label.setText(f"从初始日期到目标日期相差 {days_diff} 天 ({years}年{remaining_days}天)")
 
 
 if __name__ == "__main__":

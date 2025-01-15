@@ -60,7 +60,12 @@ def process_duplicates(size_map, duplicates_dir):
             # 按创建时间排序，保留最早创建的文件
             file_list.sort(key=lambda x: os.path.getctime(x))
             duplicate_groups.append(file_list)
-            
+    
+    # 判断是否有重复文件
+    if not duplicate_groups:
+        print("Hash检测完成 无重复文件")
+        return []  # 返回空列表，退出函数
+
     # 生成 duplicates_tree.txt 文件
     tree_file = generate_duplicates_tree(duplicates_dir, duplicate_groups)
     
@@ -75,6 +80,8 @@ def process_duplicates(size_map, duplicates_dir):
                 new_path = os.path.join(duplicates_dir, os.path.basename(duplicate))
                 shutil.move(duplicate, new_path)
         print("文件已移动！")
+        print(f"查重完成！重复文件已移动到目录：{duplicates_dir}")
+        print(f"详细重复信息已记录在 {os.path.join(duplicates_dir, 'duplicates_tree.txt')}")
     else:
         print("操作已取消。")
     
@@ -109,9 +116,6 @@ def process_directories(directories):
         size_map = group_files_by_size(root_dir)
         process_duplicates(size_map, duplicates_dir)
         
-        print(f"查重完成！重复文件已移动到目录：{duplicates_dir}")
-        print(f"详细重复信息已记录在 {os.path.join(duplicates_dir, 'duplicates_tree.txt')}")
-
 
 def main():
     print("请输入文件夹路径，或将一个或多个路径拖入窗口后回车：")
@@ -124,6 +128,7 @@ def main():
         # 分割多个路径（以空格区分）
         directories = input_paths.split()
         process_directories(directories)
+        
         print("\n处理完成！可以继续拖入文件夹路径，或直接按回车退出。")
 
 
