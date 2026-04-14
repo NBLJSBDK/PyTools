@@ -161,19 +161,19 @@ def main():
             print("配置文件不存在，将进入配置步骤。")
             use_last_config = False
         else:
-            user_input = input("输入回车使用配置开始处理  输入任意字符进入配置步骤: ")
+            user_input = input("输入回车使用上次配置开始处理  输入任意字符进入配置步骤: ")
             use_last_config = user_input == ""
 
         if not use_last_config:
             print("\n选择整理后的目录结构（以2020年3月1日为例）：")
-            print("1. \\\\2020\\03\\")
-            print("2. \\\\2020\\3\\")
-            print("3. \\\\2020\\202003\\")
-            print("4. \\\\202003\\")
-            print("5. \\\\2020\\03\\01\\")
-            print("6. \\\\2020\\0301\\")
-            print("7. \\\\20200301\\")
-            print("8. \\\\2020\\")
+            print("1. \\2020\\03\\")
+            print("2. \\2020\\3\\")
+            print("3. \\2020\\202003\\")
+            print("4. \\202003\\")
+            print("5. \\2020\\03\\01\\")
+            print("6. \\2020\\0301\\")
+            print("7. \\20200301\\")
+            print("8. \\2020\\")
             dir_structure = int(input(f"选择目录结构({config.get('dir_structure', 1)}): ") or config.get("dir_structure", 1))
 
             print("-------------------------")
@@ -191,7 +191,7 @@ def main():
 
             print("-------------------------")
             print("目标文件夹存在同名文件时")
-            print("1. 智能处理(推荐)")
+            print("1. 智能处理(推荐,使用Hash对比文件,如果相同就覆盖,不同就重命名后保存)")
             print("2. 跳过")
             conflict_resolution = int(input(f"选择冲突处理方法({config.get('conflict_resolution', 1)}): ") or config.get("conflict_resolution", 1))
 
