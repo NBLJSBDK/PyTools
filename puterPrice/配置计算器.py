@@ -3,7 +3,8 @@ import sys
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QTableWidget, \
     QTableWidgetItem, QMessageBox, QDesktopWidget, QHBoxLayout, QFileDialog, QLineEdit
-
+import io
+import traceback
 
 class NumericTableWidgetItem(QTableWidgetItem):
     def __init__(self, value=''):
@@ -20,6 +21,7 @@ class NumericTableWidgetItem(QTableWidgetItem):
             try:
                 value = float(value)
             except ValueError:
+                print(f"输入无效：{value}")
                 value = 0.0
         super().setData(role, value)
 
@@ -154,10 +156,17 @@ class MachinePriceCalculator(QMainWindow):
             quantity_item = self.table_widget.item(row, 3)
             total_price_item = self.table_widget.item(row, 4)  # 获取总价单元格
             if price_item and quantity_item and total_price_item:
-                price = float(price_item.text())
-                quantity = int(quantity_item.text())
-                item_total_price = price * quantity
-                total_price_item.setText(str(item_total_price))  # 更新现有总价单元格的文本
+                try:
+                    price = float(price_item.text())
+                    quantity = int(quantity_item.text())
+                    if price < 0 or quantity < 0:
+                        raise ValueError("价格和数量不能为负数")
+                    item_total_price = price * quantity
+                    total_price_item.setText(str(item_total_price))  # 更新现有总价单元格的文本
+                except ValueError as e:
+                    print(f"输入无效: {e}")
+                    total_price_item.setText("错误")  # 提示错误
+
 
     def calculate_total_price(self):
         total_price = 0
@@ -282,7 +291,13 @@ class MachinePriceCalculator(QMainWindow):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MachinePriceCalculator()
-    window.show()
-    sys.exit(app.exec_())
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    try:
+        app = QApplication(sys.argv)
+        window = MachinePriceCalculator()
+        window.show()
+        sys.exit(app.exec_())
+    except Exception as e:
+        print(f"未处理的错误: {e}")
+        traceback.print_exc()  # 打印完整的错误堆栈信息
