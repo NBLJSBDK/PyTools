@@ -42,6 +42,8 @@ class BlindTyping(QWidget):
         self.auto_submit = self.settings["default_auto_submit"]
         self.correct_count = 0
         self.mistake_count = 0
+        self.correct_character_count = 0
+        self.input_character_count = 0
         self.initUI()
         QApplication.instance().applicationStateChanged.connect(self.handle_application_state_changed)
 
@@ -236,6 +238,9 @@ class BlindTyping(QWidget):
             self.practice_words = self.words.copy()
 
         self.total_word_count = len(self.practice_words)
+        self.target_character_count = sum(
+            len(word) for word in self.practice_words
+        )
 
     def build_random_practice_words(self):
         """随机生成题目，并尽量避免相同词连续出现。"""
@@ -304,14 +309,21 @@ class BlindTyping(QWidget):
         self.auto_submit = checked
 
     def check_input(self):
-        if not self.input_text_started:
-            return
         if self.current_word_index >= self.total_word_count:
             return
 
         input_text = self.input_edit.text()
+        if not input_text.strip():
+            self.input_edit.clear()
+            self.input_edit.setFocus()
+            return
+        if not self.input_text_started:
+            return
+
+        self.input_character_count += len(input_text)
         if input_text == self.practice_words[self.current_word_index]:
             self.correct_count += 1
+            self.correct_character_count += len(input_text)
             self.current_word_index += 1
             self.play_encourage_sound()
 
@@ -342,7 +354,7 @@ class BlindTyping(QWidget):
             self.check_input()
 
     def start_timer_if_needed(self, text):
-        if not self.input_text_started and text:
+        if not self.input_text_started and text.strip():
             self.practice_start_datetime = QDateTime.currentDateTime()
             self.practice_input_method = self.input_method_combo.currentText()
             self.practice_auto_submit = self.auto_submit_checkbox.isChecked()
@@ -377,6 +389,8 @@ class BlindTyping(QWidget):
         self.practice_auto_submit = None
         self.correct_count = 0
         self.mistake_count = 0
+        self.correct_character_count = 0
+        self.input_character_count = 0
         self.timer.stop()  # 停止计时器
         self.input_edit.setEnabled(True)
         self.input_edit.clear()
@@ -407,6 +421,13 @@ class BlindTyping(QWidget):
                 if self.current_mode != "单次测速"
                 else "不适用"
             )
+            elapsed_milliseconds = self.elapsed_time.msecsSinceStartOfDay()
+            elapsed_minutes = elapsed_milliseconds / 60000
+            characters_per_minute = (
+                self.input_character_count / elapsed_minutes
+                if elapsed_minutes > 0
+                else 0
+            )
             total_attempts = self.correct_count + self.mistake_count
             accuracy = (
                 self.correct_count / total_attempts * 100
@@ -421,6 +442,10 @@ class BlindTyping(QWidget):
                 f"模式={self.current_mode} 输入法={input_method} "
                 f"自动提交={auto_submit_text} "
                 f"重复次数={repeat_count} 记录={elapsed} "
+                f"字数={self.target_character_count} "
+                f"实际提交字数={self.input_character_count} "
+                f"正确字数={self.correct_character_count} "
+                f"每分钟输入字数={characters_per_minute:.1f} "
                 f"产生时间={end_short_text}\n"
             )
             log_line = (
@@ -428,7 +453,11 @@ class BlindTyping(QWidget):
                 f"输入法={input_method} 自动提交={auto_submit_text} "
                 f"模式={self.current_mode} "
                 f"重复次数={repeat_count} 词表词数={len(self.words)} "
-                f"总题数={self.total_word_count} 正确={self.correct_count} "
+                f"总题数={self.total_word_count} 字数={self.target_character_count} "
+                f"实际提交字数={self.input_character_count} "
+                f"正确字数={self.correct_character_count} "
+                f"每分钟输入字数={characters_per_minute:.1f} "
+                f"正确={self.correct_count} "
                 f"错误={self.mistake_count} 尝试={total_attempts} "
                 f"正确率={accuracy:.1f}% 用时={elapsed}\n"
             )
