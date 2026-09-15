@@ -18,7 +18,7 @@ import sys
 
 try:
     from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
-    from PySide6.QtGui import QColor, QCursor, QImage, QPainter, QPixmap, QIcon, QPolygon
+    from PySide6.QtGui import QColor, QImage, QPainter, QPixmap, QIcon, QPolygon
     from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon, QWidget
 except ModuleNotFoundError as exc:  # pragma: no cover - depends on the host
     if exc.name != "PySide6":
@@ -31,12 +31,6 @@ except ModuleNotFoundError as exc:  # pragma: no cover - depends on the host
         file=sys.stderr,
     )
     raise SystemExit(2)
-
-try:
-    from pynput import mouse as pynput_mouse
-except Exception:  # pragma: no cover - depends on the desktop session
-    pynput_mouse = None
-
 
 class PinWindow(QWidget):
     """Borderless image window with mouse-only controls."""
@@ -172,32 +166,6 @@ class PinWindow(QWidget):
         super().closeEvent(event)
 
 
-class TrayScrollBridge(QWidget):
-    """Forward global scroll events to Qt, limited to the tray icon area."""
-
-    scrolled = Signal(int, int, int)
-
-    def __init__(self, tray: QSystemTrayIcon) -> None:
-        super().__init__()
-        self.tray = tray
-        self.listener = None
-        if pynput_mouse is not None:
-            try:
-                self.listener = pynput_mouse.Listener(on_scroll=self._on_scroll)
-                self.listener.start()
-            except Exception:
-                self.listener = None
-
-    def _on_scroll(self, _x, _y, _dx, dy) -> None:
-        # The callback runs outside Qt's GUI thread; only emit a value here.
-        self.scrolled.emit(int(_x), int(_y), 1 if dy > 0 else -1 if dy < 0 else 0)
-
-    def stop(self) -> None:
-        if self.listener is not None:
-            self.listener.stop()
-            self.listener = None
-
-
 def launch_detached(image_path: Path) -> int:
     """Start the Qt child in a new session/process group and return."""
     command = [sys.executable, str(Path(__file__).resolve()), "--serve", str(image_path)]
@@ -240,6 +208,12 @@ def serve(image_path: Path) -> int:
         top_action = menu.addAction("置顶")
         top_action.setCheckable(True)
         top_action.setChecked(True)
+        opacity_menu = menu.addMenu("透明度")
+        for percent in (100, 80, 60, 40, 20):
+            opacity_action = opacity_menu.addAction(f"{percent}%")
+            opacity_action.triggered.connect(
+                lambda _checked=False, value=percent / 100: set_opacity(window, value)
+            )
         menu.addSeparator()
         exit_action = menu.addAction("退出 Pinpic")
         tray.setContextMenu(menu)
@@ -264,18 +238,9 @@ def serve(image_path: Path) -> int:
         exit_action.triggered.connect(app.quit)
         window.closed.connect(app.quit)
         tray.show()
-        scroll_bridge = TrayScrollBridge(tray)
-
-        def tray_scroll(x: int, y: int, steps: int) -> None:
-            if steps and is_tray_pointer(tray, x, y):
-                set_opacity(window, window.opacity + window.OPACITY_STEP * steps)
-
-        scroll_bridge.scrolled.connect(tray_scroll)
-        app.aboutToQuit.connect(scroll_bridge.stop)
         # Keep a Python reference for bindings that do not retain it through
         # the QObject parent alone.
         app._pinpic_tray = tray
-        app._pinpic_scroll_bridge = scroll_bridge
     else:
         app.setQuitOnLastWindowClosed(True)
 
@@ -315,30 +280,6 @@ def make_tray_icon() -> QIcon:
 def set_opacity(window: PinWindow, value: float) -> None:
     window.opacity = max(0.15, min(1.0, float(value)))
     window.setWindowOpacity(window.opacity)
-
-
-def is_tray_pointer(tray: QSystemTrayIcon, x: int, y: int) -> bool:
-    """Check the tray icon; KDE SNI may not expose its geometry to Qt."""
-    geometry = tray.geometry()
-    if not geometry.isNull() and geometry.isValid():
-        return geometry.contains(x, y)
-    screen = QApplication.screenAt(QPoint(x, y)) or QApplication.primaryScreen()
-    if screen is None:
-        return False
-    area = screen.geometry()
-    # Plasma's panel is normally at an edge. This fallback is used only when
-    # the SNI host reports 0x0 geometry, and keeps scrolling off the image.
-    edge_size = 80
-    return (
-        area.left() <= x <= area.right()
-        and area.top() <= y <= area.bottom()
-        and (
-            y >= area.bottom() - edge_size
-            or y <= area.top() + edge_size
-            or x <= area.left() + edge_size
-            or x >= area.right() - edge_size
-        )
-    )
 
 
 def set_always_on_top(window: PinWindow, enabled: bool) -> None:
