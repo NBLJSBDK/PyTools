@@ -96,7 +96,9 @@ class PinWindow(QWidget):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt API)
         if event.button() == Qt.MouseButton.RightButton:
-            self.hide()
+            # Minimize instead of hide: KDE keeps the task-manager item so
+            # the image can be restored from the left-side taskbar icon.
+            self.showMinimized()
             return
         if event.button() == Qt.MouseButton.MiddleButton:
             self.set_zoom(self.base_zoom, event.globalPosition().toPoint())
