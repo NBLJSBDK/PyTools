@@ -26,6 +26,8 @@ PyTools/
 - 训练词表:`typing-practice/data.txt`，支持整行注释、行尾注释和空行
 - 训练记录:`typing-practice/typing_log.txt` 和 `typing-practice/achievement.txt`
 - 统计字段:目标字数、实际提交字数、正确字数和每分钟输入字数
+- 逐题记录:`typing-practice/typing_detail_log.csv`，包含题目显示时间、正确提交时间、提交间隔和错误尝试次数
+- 卡顿分析:记录提交间隔平均值、中位数、P90、P95、动态卡顿阈值及最慢题目/词汇
 - 输入行为:空白回车不会计错、播放惩罚音或启动计时
 - 资源文件:音效文件存放在`typing-practice/misc/`目录下
 
