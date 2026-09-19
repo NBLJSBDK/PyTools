@@ -1,5 +1,6 @@
 import csv
 import configparser
+from functools import cmp_to_key
 import os
 import random
 import statistics
@@ -20,6 +21,7 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QSpinBox,
     QCheckBox,
+    QMessageBox,
 )
 
 
@@ -31,6 +33,10 @@ class BlindTyping(QWidget):
         super().__init__()
         self.settings = self.load_config()
         self.practice_times = self.settings["default_times"]
+        self.dict_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "dict",
+        )
         self.players = []  # 存储音频播放器对象的列表
         self.encourage_sounds = [os.path.join(os.path.dirname(__file__), 'misc', 'EncourageSound', f"{i}.mp3") for i in
                                  range(1, 15)]  # 修改为14
@@ -47,6 +53,7 @@ class BlindTyping(QWidget):
         self.practice_auto_submit = None
         self.input_method = self.settings["default_input_method"]
         self.auto_submit = self.settings["default_auto_submit"]
+        self.current_word_file = self.settings["default_word_file"]
         self.correct_count = 0
         self.mistake_count = 0
         self.correct_character_count = 0
@@ -63,9 +70,24 @@ class BlindTyping(QWidget):
         QApplication.instance().applicationStateChanged.connect(self.handle_application_state_changed)
 
     def initUI(self):
-        self.words = self.load_words_from_file()
+        self.word_files = self.list_word_files()
+        if not self.word_files:
+            self.report_word_file_error(
+                f"词表目录不存在或没有 .txt 文件：{self.dict_dir}"
+            )
+            sys.exit(1)
+
+        if self.current_word_file not in self.word_files:
+            self.report_word_file_error(
+                f"配置中的词表不存在：{self.current_word_file}"
+            )
+            self.current_word_file = self.word_files[0]
+
+        self.words = self.load_words_from_file(self.current_word_file)
         if not self.words:
-            print("File 'data.txt' contains no words.")
+            self.report_word_file_error(
+                f"词表没有可训练内容：{self.current_word_file}"
+            )
             sys.exit(1)
 
         self.current_mode = self.settings["default_mode"]
@@ -80,6 +102,9 @@ class BlindTyping(QWidget):
         self.practice_times_spin.setRange(1, 99)
         self.practice_times_spin.setValue(self.practice_times)
         self.practice_times_spin.setSuffix(" 次")
+        self.word_file_combo = QComboBox()
+        self.word_file_combo.addItems(self.word_files)
+        self.word_file_combo.setCurrentText(self.current_word_file)
         self.input_method_combo = QComboBox()
         self.input_method_combo.addItems(self.settings["input_methods"])
         self.input_method_combo.setCurrentText(self.input_method)
@@ -106,6 +131,11 @@ class BlindTyping(QWidget):
         mode_row.addWidget(self.practice_times_spin)
         mode_row.addStretch()
 
+        word_file_row = QHBoxLayout()
+        word_file_row.addWidget(QLabel("词表"))
+        word_file_row.addWidget(self.word_file_combo)
+        word_file_row.addStretch()
+
         input_row = QHBoxLayout()
         input_row.addWidget(QLabel("输入法"))
         input_row.addWidget(self.input_method_combo)
@@ -113,6 +143,7 @@ class BlindTyping(QWidget):
         input_row.addStretch()
 
         controls_box = QVBoxLayout()
+        controls_box.addLayout(word_file_row)
         controls_box.addLayout(mode_row)
         controls_box.addLayout(input_row)
 
@@ -131,6 +162,7 @@ class BlindTyping(QWidget):
         self.setWindowTitle('盲打训练')
         self.mode_combo.currentTextChanged.connect(self.change_mode)
         self.practice_times_spin.valueChanged.connect(self.change_practice_times)
+        self.word_file_combo.currentTextChanged.connect(self.change_word_file)
         self.input_method_combo.currentTextChanged.connect(self.change_input_method)
         self.auto_submit_checkbox.toggled.connect(self.change_auto_submit)
         self.practice_times_spin.setEnabled(self.current_mode != "单次测速")
@@ -222,37 +254,101 @@ class BlindTyping(QWidget):
         input_method = settings.get("default_input_method", "自然码双拼").strip()
         if input_method not in input_methods:
             input_method = input_methods[0]
+        word_file = settings.get("default_word_file", "data.txt").strip()
+        if not word_file:
+            word_file = "data.txt"
 
         return {
             "default_mode": mode,
             "default_times": practice_times,
             "default_input_method": input_method,
             "default_auto_submit": default_auto_submit,
+            "default_word_file": word_file,
             "input_methods": input_methods,
         }
 
-    def load_words_from_file(self):
+    @staticmethod
+    def natural_compare(left, right):
+        left_index = 0
+        right_index = 0
+
+        while left_index < len(left) and right_index < len(right):
+            left_char = left[left_index]
+            right_char = right[right_index]
+            left_is_digit = left_char.isdigit()
+            right_is_digit = right_char.isdigit()
+
+            if left_is_digit and right_is_digit:
+                left_end = left_index
+                right_end = right_index
+                while left_end < len(left) and left[left_end].isdigit():
+                    left_end += 1
+                while right_end < len(right) and right[right_end].isdigit():
+                    right_end += 1
+
+                left_number = int(left[left_index:left_end])
+                right_number = int(right[right_index:right_end])
+                if left_number != right_number:
+                    return -1 if left_number < right_number else 1
+                left_index = left_end
+                right_index = right_end
+                continue
+
+            if left_is_digit != right_is_digit:
+                return 1 if left_is_digit else -1
+
+            left_folded = left_char.casefold()
+            right_folded = right_char.casefold()
+            if left_folded != right_folded:
+                return -1 if left_folded < right_folded else 1
+            left_index += 1
+            right_index += 1
+
+        if len(left) != len(right):
+            return -1 if len(left) < len(right) else 1
+        if left == right:
+            return 0
+        return -1 if left < right else 1
+
+    def list_word_files(self):
         try:
-            filepath = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                'data.txt'
-            )
+            filenames = [
+                entry.name
+                for entry in os.scandir(self.dict_dir)
+                if entry.is_file() and entry.name.lower().endswith(".txt")
+            ]
+        except OSError as error:
+            print(f"Error while reading word list directory: {error}")
+            return []
+        return sorted(filenames, key=cmp_to_key(self.natural_compare))
 
-            words = []
+    def get_word_file_path(self, filename):
+        if not filename or os.path.basename(filename) != filename:
+            return None
+        return os.path.join(self.dict_dir, filename)
 
-            with open(filepath, 'r', encoding='utf-8') as file:
+    def report_word_file_error(self, message):
+        print(message)
+        QMessageBox.critical(self, "词表错误", message)
+
+    def load_words_from_file(self, filename):
+        filepath = self.get_word_file_path(filename)
+        if filepath is None:
+            return []
+
+        words = []
+        try:
+            with open(filepath, "r", encoding="utf-8") as file:
                 for line in file:
                     # 去掉行内注释
-                    line = line.split('#', 1)[0].strip()
+                    line = line.split("#", 1)[0].strip()
 
                     # 忽略空行和纯注释行
                     if line:
                         words.append(line)
-
-            return words
         except FileNotFoundError:
-            print("File 'data.txt' not found.")
-            sys.exit(1)
+            return []
+        return words
 
     def prepare_practice_words(self):
         """根据当前模式生成统一的练习题目序列。"""
@@ -331,6 +427,27 @@ class BlindTyping(QWidget):
         self.practice_times_spin.setEnabled(mode != "单次测速")
         self.restart_practice()
 
+    def change_word_file(self, filename):
+        filepath = self.get_word_file_path(filename)
+        if filepath is None or not os.path.isfile(filepath):
+            self.report_word_file_error(f"选择的词表不存在：{filename}")
+            self.word_file_combo.blockSignals(True)
+            self.word_file_combo.setCurrentText(self.current_word_file)
+            self.word_file_combo.blockSignals(False)
+            return
+
+        words = self.load_words_from_file(filename)
+        if not words:
+            self.report_word_file_error(f"选择的词表没有可训练内容：{filename}")
+            self.word_file_combo.blockSignals(True)
+            self.word_file_combo.setCurrentText(self.current_word_file)
+            self.word_file_combo.blockSignals(False)
+            return
+
+        self.current_word_file = filename
+        self.words = words
+        self.restart_practice()
+
     def change_practice_times(self, value):
         self.practice_times = value
         self.restart_practice()
@@ -351,6 +468,7 @@ class BlindTyping(QWidget):
             "default_mode": self.mode_combo.currentText(),
             "default_times": str(self.practice_times_spin.value()),
             "default_input_method": self.input_method_combo.currentText(),
+            "default_word_file": self.current_word_file,
             "default_auto_submit": (
                 "1" if self.auto_submit_checkbox.isChecked() else "0"
             ),
@@ -698,7 +816,7 @@ class BlindTyping(QWidget):
                 f"产生时间={end_short_text}\n"
             )
             log_line = (
-                f"开始={start_text} 结束={end_text} 数据文件=data.txt "
+                f"开始={start_text} 结束={end_text} 数据文件={self.current_word_file} "
                 f"输入法={input_method} 自动提交={auto_submit_text} "
                 f"模式={self.current_mode} "
                 f"重复次数={repeat_count} 词表词数={len(self.words)} "
