@@ -743,7 +743,11 @@ class BlindTyping(QWidget):
         ]
         has_header = os.path.exists(detail_path) and os.path.getsize(detail_path) > 0
         with open(detail_path, "a", encoding="utf-8", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer = csv.DictWriter(
+                file,
+                fieldnames=fieldnames,
+                lineterminator="\n",
+            )
             if not has_header:
                 writer.writeheader()
             for record in self.session_records:
