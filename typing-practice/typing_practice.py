@@ -342,6 +342,50 @@ class BlindTyping(QWidget):
     def change_auto_submit(self, checked):
         self.auto_submit = checked
 
+    def save_config(self):
+        filepath = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "config.ini",
+        )
+        values = {
+            "default_mode": self.mode_combo.currentText(),
+            "default_times": str(self.practice_times_spin.value()),
+            "default_input_method": self.input_method_combo.currentText(),
+            "default_auto_submit": (
+                "1" if self.auto_submit_checkbox.isChecked() else "0"
+            ),
+        }
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as file:
+                lines = file.readlines()
+
+            section = None
+            updated = set()
+            output = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith("[") and stripped.endswith("]"):
+                    section = stripped[1:-1].strip()
+
+                if section == "默认设置" and "=" in line and not stripped.startswith("#"):
+                    key = line.split("=", 1)[0].strip()
+                    if key in values:
+                        newline = "\n" if line.endswith("\n") else ""
+                        output.append(f"{key} = {values[key]}{newline}")
+                        updated.add(key)
+                        continue
+                output.append(line)
+
+            missing = [key for key in values if key not in updated]
+            if missing:
+                raise ValueError(f"config.ini 缺少默认设置: {', '.join(missing)}")
+
+            with open(filepath, "w", encoding="utf-8") as file:
+                file.writelines(output)
+        except (OSError, ValueError) as error:
+            print(f"Error while saving config.ini: {error}")
+
     def check_input(self):
         if self.current_word_index >= self.total_word_count:
             return
@@ -456,13 +500,9 @@ class BlindTyping(QWidget):
         self.update_practice_display()
         self.timer_label.setText("00:00:00")
 
-    # 暂时关闭“练习未完成时禁止关闭窗口”功能；以后需要时取消下面注释即可恢复。
-    # def closeEvent(self, event):
-    #     if self.current_word_index == self.total_word_count:
-    #         event.accept()
-    #     else:
-    #         self.restart_practice()
-    #         event.ignore()
+    def closeEvent(self, event):
+        self.save_config()
+        event.accept()
 
     @staticmethod
     def percentile(values, percentage):
