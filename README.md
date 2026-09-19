@@ -23,7 +23,7 @@ PyTools/
 - 启动脚本:`typing-practice/run.sh`
 - 主程序:`typing-practice/typing_practice.py`
 - 配置文件:`typing-practice/config.ini`
-- 训练词表:`typing-practice/data.txt`，支持整行注释、行尾注释和空行
+- 训练词表:`typing-practice/dict/` 下的 `.txt` 文件，可在程序的“词表”选择框中切换，支持整行注释、行尾注释和空行
 - 训练记录:`typing-practice/typing_log.txt` 和 `typing-practice/achievement.txt`
 - 统计字段:目标字数、实际提交字数、正确字数和每分钟输入字数
 - 逐题记录:`typing-practice/typing_detail_log.csv`，包含题目显示时间、正确提交时间、提交间隔和错误尝试次数
