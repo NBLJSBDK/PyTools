@@ -18,11 +18,18 @@ PyTools/
 ## 主要功能
 
 ### 1. 盲打训练
-- 功能:打字练习工具，包含多种训练模式、配置、日志和音效反馈
-- 主程序:`typing_practice.py`
-- 配置文件:`config.ini`
-- 训练记录:`typing_log.txt` 和 `achievement.txt`
-- 资源文件:音效文件存放在`misc/`目录下
+- 功能:PyQt5 打字练习工具，包含多种训练模式、配置、日志和音效反馈
+- 项目目录:`typing-practice/`
+- 启动脚本:`typing-practice/run.sh`
+- 主程序:`typing-practice/typing_practice.py`
+- 配置文件:`typing-practice/config.ini`
+- 训练词表:`typing-practice/data.txt`，支持整行注释、行尾注释和空行
+- 训练记录:`typing-practice/typing_log.txt` 和 `typing-practice/achievement.txt`
+- 统计字段:目标字数、实际提交字数、正确字数和每分钟输入字数
+- 输入行为:空白回车不会计错、播放惩罚音或启动计时
+- 资源文件:音效文件存放在`typing-practice/misc/`目录下
+
+盲打训练支持顺序学习、乱序巩固和单次测速三种模式，也支持输入法记录、自动提交和失焦暂停。
 
 ### 2. 文件查重
 - 功能:图片去重工具
@@ -70,7 +77,12 @@ PyTools/
    ```bash
    pip install -r requirements.txt
    ```
-3. 运行脚本:
+3. 运行盲打训练:
+   ```bash
+   cd typing-practice
+   ./run.sh
+   ```
+4. 运行其他脚本:
    ```bash
    python 工具路径/脚本名称.py
    ```
