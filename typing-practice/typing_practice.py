@@ -1,7 +1,11 @@
+import csv
 import configparser
 import os
 import random
+import statistics
 import sys
+import time
+from datetime import datetime
 
 from PyQt5.QtCore import QUrl, QTimer, QTime, QDateTime, Qt
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
@@ -20,6 +24,9 @@ from PyQt5.QtWidgets import (
 
 
 class BlindTyping(QWidget):
+    STALL_FACTOR = 2.0
+    TOP_N = 10
+
     def __init__(self):
         super().__init__()
         self.settings = self.load_config()
@@ -44,6 +51,14 @@ class BlindTyping(QWidget):
         self.mistake_count = 0
         self.correct_character_count = 0
         self.input_character_count = 0
+        self.session_id = None
+        self.session_records = []
+        self.question_shown_at = None
+        self.correct_submit_at = None
+        self.question_shown_datetime = None
+        self.current_question_attempts = 0
+        self.current_question_errors = 0
+        self.detail_log_saved = False
         self.initUI()
         QApplication.instance().applicationStateChanged.connect(self.handle_application_state_changed)
 
@@ -71,6 +86,7 @@ class BlindTyping(QWidget):
         self.auto_submit_checkbox = QCheckBox("自动提交")
         self.auto_submit_checkbox.setChecked(self.auto_submit)
         self.prepare_practice_words()
+        self.start_new_session()
 
         self.word_label = QLabel()
         self.input_edit = QLineEdit()
@@ -126,6 +142,20 @@ class BlindTyping(QWidget):
 
         # 播放声音
         self.play_sound(os.path.join(os.path.dirname(__file__), 'misc', 'ready', '卫星图.wav'))
+
+    def start_new_session(self):
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.session_records = []
+        self.question_shown_at = None
+        self.correct_submit_at = None
+        self.question_shown_datetime = None
+        self.current_question_attempts = 0
+        self.current_question_errors = 0
+        self.detail_log_saved = False
+
+    @staticmethod
+    def format_timestamp(value):
+        return value.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
     def init_players(self):
         # 创建多个音频播放器对象
@@ -279,11 +309,15 @@ class BlindTyping(QWidget):
 
     def update_practice_display(self):
         if self.current_word_index >= self.total_word_count:
+            self.question_shown_at = None
+            self.question_shown_datetime = None
             self.word_label.setText("Practice Finished")
             self.count_label.setText("")
             return
 
         self.word_label.setText(self.format_word_label())
+        self.question_shown_at = time.perf_counter()
+        self.question_shown_datetime = datetime.now()
         if self.current_mode == "顺序学习":
             completed_count = self.current_word_index % self.practice_times
             self.count_label.setText(f"{completed_count}/{self.practice_times}")
@@ -320,12 +354,35 @@ class BlindTyping(QWidget):
         if not self.input_text_started:
             return
 
+        question_index = self.current_word_index
+        question_text = self.practice_words[question_index]
+        self.current_question_attempts += 1
         self.input_character_count += len(input_text)
-        if input_text == self.practice_words[self.current_word_index]:
+        if input_text == question_text:
             self.correct_count += 1
             self.correct_character_count += len(input_text)
+            self.correct_submit_at = time.perf_counter()
+            correct_submit_at = self.correct_submit_at
+            correct_submit_datetime = datetime.now()
+            shown_at = self.question_shown_at or correct_submit_at
+            shown_datetime = self.question_shown_datetime or correct_submit_datetime
+            duration_seconds = max(0.0, correct_submit_at - shown_at)
+            self.session_records.append({
+                "session_id": self.session_id,
+                "index": question_index + 1,
+                "text": question_text,
+                "shown_at": self.format_timestamp(shown_datetime),
+                "submitted_at": self.format_timestamp(correct_submit_datetime),
+                "duration_seconds": duration_seconds,
+                "duration_ms": round(duration_seconds * 1000, 3),
+                "error_attempts": self.current_question_errors,
+                "attempts": self.current_question_attempts,
+                "first_try_correct": self.current_question_attempts == 1,
+            })
             self.current_word_index += 1
             self.play_encourage_sound()
+            self.current_question_attempts = 0
+            self.current_question_errors = 0
 
             if self.current_word_index == self.total_word_count:
                 self.word_label.setText("Practice Finished")
@@ -341,6 +398,7 @@ class BlindTyping(QWidget):
         else:
             # 播放惩罚声音
             self.mistake_count += 1
+            self.current_question_errors += 1
             self.play_punishment_sound()
             self.EncourageSound_count = 0
         self.input_edit.clear()
@@ -380,6 +438,7 @@ class BlindTyping(QWidget):
         self.play_sound(os.path.join(os.path.dirname(__file__), 'misc', 'ready', '卫星图.wav'))
         self.current_mode = self.mode_combo.currentText()
         self.prepare_practice_words()
+        self.start_new_session()
         self.current_word_index = 0
         self.EncourageSound_count = 0
         self.elapsed_time = QTime(0, 0)
@@ -405,6 +464,144 @@ class BlindTyping(QWidget):
     #         self.restart_practice()
     #         event.ignore()
 
+    @staticmethod
+    def percentile(values, percentage):
+        if not values:
+            return 0.0
+
+        ordered = sorted(values)
+        position = (len(ordered) - 1) * percentage / 100
+        lower_index = int(position)
+        upper_index = min(lower_index + 1, len(ordered) - 1)
+        fraction = position - lower_index
+        return ordered[lower_index] + (
+            ordered[upper_index] - ordered[lower_index]
+        ) * fraction
+
+    def calculate_session_statistics(self):
+        durations = [record["duration_seconds"] for record in self.session_records]
+        if not durations:
+            return {
+                "count": 0,
+                "average": 0.0,
+                "median": 0.0,
+                "p90": 0.0,
+                "p95": 0.0,
+                "maximum": 0.0,
+                "stall_threshold": 0.0,
+                "stall_count": 0,
+                "first_try_correct_count": 0,
+                "first_try_correct_rate": 0.0,
+                "slow_questions": [],
+                "slow_words": [],
+            }
+
+        median = statistics.median(durations)
+        stall_threshold = median * self.STALL_FACTOR
+        grouped_by_word = {}
+        for record in self.session_records:
+            grouped_by_word.setdefault(record["text"], []).append(record)
+
+        slow_words = []
+        for text, records in grouped_by_word.items():
+            word_durations = [record["duration_seconds"] for record in records]
+            slow_words.append({
+                "text": text,
+                "count": len(records),
+                "average": statistics.mean(word_durations),
+                "median": statistics.median(word_durations),
+                "fastest": min(word_durations),
+                "slowest": max(word_durations),
+                "stall_count": sum(
+                    duration > stall_threshold for duration in word_durations
+                ),
+            })
+
+        slow_words.sort(
+            key=lambda item: (item["average"], item["slowest"]),
+            reverse=True,
+        )
+        first_try_correct_count = sum(
+            record["first_try_correct"] for record in self.session_records
+        )
+        return {
+            "count": len(durations),
+            "average": statistics.mean(durations),
+            "median": median,
+            "p90": self.percentile(durations, 90),
+            "p95": self.percentile(durations, 95),
+            "maximum": max(durations),
+            "stall_threshold": stall_threshold,
+            "stall_count": sum(duration > stall_threshold for duration in durations),
+            "first_try_correct_count": first_try_correct_count,
+            "first_try_correct_rate": (
+                first_try_correct_count / len(durations) * 100
+            ),
+            "slow_questions": sorted(
+                self.session_records,
+                key=lambda record: record["duration_seconds"],
+                reverse=True,
+            )[:self.TOP_N],
+            "slow_words": slow_words[:self.TOP_N],
+        }
+
+    @staticmethod
+    def format_slow_questions(records):
+        if not records:
+            return "无"
+        return "|".join(
+            f"{record['index']}.{record['text']}:{record['duration_seconds']:.3f}s"
+            for record in records
+        )
+
+    @staticmethod
+    def format_slow_words(records):
+        if not records:
+            return "无"
+        return "|".join(
+            f"{record['text']}:平均={record['average']:.3f}s,"
+            f"中位数={record['median']:.3f}s,"
+            f"最快={record['fastest']:.3f}s,"
+            f"最慢={record['slowest']:.3f}s,"
+            f"卡顿={record['stall_count']}"
+            for record in records
+        )
+
+    def append_detail_log(self, base_dir):
+        if not self.session_records or self.detail_log_saved:
+            return
+
+        detail_path = os.path.join(base_dir, "typing_detail_log.csv")
+        fieldnames = [
+            "session_id",
+            "index",
+            "text",
+            "shown_at",
+            "submitted_at",
+            "duration_ms",
+            "error_attempts",
+            "attempts",
+            "first_try_correct",
+        ]
+        has_header = os.path.exists(detail_path) and os.path.getsize(detail_path) > 0
+        with open(detail_path, "a", encoding="utf-8", newline="") as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            if not has_header:
+                writer.writeheader()
+            for record in self.session_records:
+                writer.writerow({
+                    "session_id": record["session_id"],
+                    "index": record["index"],
+                    "text": record["text"],
+                    "shown_at": record["shown_at"],
+                    "submitted_at": record["submitted_at"],
+                    "duration_ms": f"{record['duration_ms']:.3f}",
+                    "error_attempts": record["error_attempts"],
+                    "attempts": record["attempts"],
+                    "first_try_correct": int(record["first_try_correct"]),
+                })
+        self.detail_log_saved = True
+
     def save_achievement(self):
         try:
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -428,6 +625,11 @@ class BlindTyping(QWidget):
                 if elapsed_minutes > 0
                 else 0
             )
+            session_stats = self.calculate_session_statistics()
+            slow_questions = self.format_slow_questions(
+                session_stats["slow_questions"]
+            )
+            slow_words = self.format_slow_words(session_stats["slow_words"])
             total_attempts = self.correct_count + self.mistake_count
             accuracy = (
                 self.correct_count / total_attempts * 100
@@ -446,6 +648,13 @@ class BlindTyping(QWidget):
                 f"实际提交字数={self.input_character_count} "
                 f"正确字数={self.correct_character_count} "
                 f"每分钟输入字数={characters_per_minute:.1f} "
+                f"提交间隔平均={session_stats['average']:.3f}s "
+                f"提交间隔中位数={session_stats['median']:.3f}s "
+                f"提交间隔P90={session_stats['p90']:.3f}s "
+                f"提交间隔P95={session_stats['p95']:.3f}s "
+                f"提交间隔最大={session_stats['maximum']:.3f}s "
+                f"卡顿阈值={session_stats['stall_threshold']:.3f}s "
+                f"卡顿次数={session_stats['stall_count']} "
                 f"产生时间={end_short_text}\n"
             )
             log_line = (
@@ -459,13 +668,27 @@ class BlindTyping(QWidget):
                 f"每分钟输入字数={characters_per_minute:.1f} "
                 f"正确={self.correct_count} "
                 f"错误={self.mistake_count} 尝试={total_attempts} "
-                f"正确率={accuracy:.1f}% 用时={elapsed}\n"
+                f"正确率={accuracy:.1f}% 用时={elapsed} "
+                f"会话ID={self.session_id} "
+                f"提交间隔平均={session_stats['average']:.3f}s "
+                f"提交间隔中位数={session_stats['median']:.3f}s "
+                f"提交间隔P90={session_stats['p90']:.3f}s "
+                f"提交间隔P95={session_stats['p95']:.3f}s "
+                f"提交间隔最大={session_stats['maximum']:.3f}s "
+                f"卡顿阈值={session_stats['stall_threshold']:.3f}s "
+                f"卡顿次数={session_stats['stall_count']} "
+                f"首次正确题数={session_stats['first_try_correct_count']} "
+                f"首次正确率={session_stats['first_try_correct_rate']:.1f}% "
+                f"最慢题目TOP10={slow_questions} "
+                f"最慢词平均TOP10={slow_words}"
+                f"\n"
             )
 
             with open(os.path.join(base_dir, 'achievement.txt'), 'a', encoding='utf-8') as file:
                 file.write(achievement_line)
             with open(os.path.join(base_dir, 'typing_log.txt'), 'a', encoding='utf-8') as file:
                 file.write(log_line)
+            self.append_detail_log(base_dir)
         except Exception as e:
             print(f"Error while saving achievement: {e}")
 
