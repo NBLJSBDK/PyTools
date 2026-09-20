@@ -648,7 +648,19 @@ class BlindTyping(QWidget):
         ) * fraction
 
     def calculate_session_statistics(self):
-        durations = [record["duration_seconds"] for record in self.session_records]
+        analysis_records = [
+            record for record in self.session_records
+            if record["index"] != 1
+        ]
+        durations = [record["duration_seconds"] for record in analysis_records]
+        first_try_correct_count = sum(
+            record["first_try_correct"] for record in self.session_records
+        )
+        first_try_correct_rate = (
+            first_try_correct_count / len(self.session_records) * 100
+            if self.session_records
+            else 0.0
+        )
         if not durations:
             return {
                 "count": 0,
@@ -659,8 +671,8 @@ class BlindTyping(QWidget):
                 "maximum": 0.0,
                 "stall_threshold": 0.0,
                 "stall_count": 0,
-                "first_try_correct_count": 0,
-                "first_try_correct_rate": 0.0,
+                "first_try_correct_count": first_try_correct_count,
+                "first_try_correct_rate": first_try_correct_rate,
                 "slow_questions": [],
                 "slow_words": [],
             }
@@ -668,7 +680,7 @@ class BlindTyping(QWidget):
         median = statistics.median(durations)
         stall_threshold = median * self.STALL_FACTOR
         grouped_by_word = {}
-        for record in self.session_records:
+        for record in analysis_records:
             grouped_by_word.setdefault(record["text"], []).append(record)
 
         slow_words = []
@@ -690,9 +702,6 @@ class BlindTyping(QWidget):
             key=lambda item: (item["average"], item["slowest"]),
             reverse=True,
         )
-        first_try_correct_count = sum(
-            record["first_try_correct"] for record in self.session_records
-        )
         return {
             "count": len(durations),
             "average": statistics.mean(durations),
@@ -703,11 +712,9 @@ class BlindTyping(QWidget):
             "stall_threshold": stall_threshold,
             "stall_count": sum(duration > stall_threshold for duration in durations),
             "first_try_correct_count": first_try_correct_count,
-            "first_try_correct_rate": (
-                first_try_correct_count / len(durations) * 100
-            ),
+            "first_try_correct_rate": first_try_correct_rate,
             "slow_questions": sorted(
-                self.session_records,
+                analysis_records,
                 key=lambda record: record["duration_seconds"],
                 reverse=True,
             )[:self.TOP_N],
@@ -799,18 +806,6 @@ class BlindTyping(QWidget):
                 else 0
             )
             session_stats = self.calculate_session_statistics()
-            sum_duration = sum(
-                record["duration_seconds"]
-                for record in self.session_records
-            )
-            elapsed_seconds = elapsed_milliseconds / 1000
-            timing_gap = abs(sum_duration - elapsed_seconds)
-            if session_stats["count"] and timing_gap > 2.0:
-                print(
-                    "Warning: 逐题耗时总和与整局计时相差 "
-                    f"{timing_gap:.3f}s "
-                    f"(逐题={sum_duration:.3f}s, 整局={elapsed_seconds:.3f}s)"
-                )
             slow_questions = self.format_slow_questions(
                 session_stats["slow_questions"]
             )
@@ -833,6 +828,7 @@ class BlindTyping(QWidget):
                 f"实际提交字数={self.input_character_count} "
                 f"正确字数={self.correct_character_count} "
                 f"每分钟输入字数={characters_per_minute:.1f} "
+                f"热身题排除=1 统计题数={session_stats['count']} "
                 f"提交间隔平均={session_stats['average']:.3f}s "
                 f"提交间隔中位数={session_stats['median']:.3f}s "
                 f"提交间隔P90={session_stats['p90']:.3f}s "
@@ -855,6 +851,7 @@ class BlindTyping(QWidget):
                 f"错误={self.mistake_count} 尝试={total_attempts} "
                 f"正确率={accuracy:.1f}% 用时={elapsed} "
                 f"会话ID={self.session_id} "
+                f"热身题排除=1 统计题数={session_stats['count']} "
                 f"提交间隔平均={session_stats['average']:.3f}s "
                 f"提交间隔中位数={session_stats['median']:.3f}s "
                 f"提交间隔P90={session_stats['p90']:.3f}s "
