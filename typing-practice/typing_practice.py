@@ -412,8 +412,14 @@ class BlindTyping(QWidget):
             return
 
         self.word_label.setText(self.format_word_label())
-        self.question_shown_at = time.perf_counter()
-        self.question_shown_datetime = datetime.now()
+        # 已正式开始训练时，下一题显示即开始计时。
+        # 第一题初始化显示时，训练尚未开始，不要提前计时。
+        if self.input_text_started:
+            self.question_shown_at = time.perf_counter()
+            self.question_shown_datetime = datetime.now()
+        else:
+            self.question_shown_at = None
+            self.question_shown_datetime = None
         if self.current_mode == "顺序学习":
             completed_count = self.current_word_index % self.practice_times
             self.count_label.setText(f"{completed_count}/{self.practice_times}")
@@ -575,9 +581,14 @@ class BlindTyping(QWidget):
 
     def start_timer_if_needed(self, text):
         if not self.input_text_started and text.strip():
+            now_perf = time.perf_counter()
+            now_datetime = datetime.now()
             self.practice_start_datetime = QDateTime.currentDateTime()
             self.practice_input_method = self.input_method_combo.currentText()
             self.practice_auto_submit = self.auto_submit_checkbox.isChecked()
+            # 第一题从第一次实际输入开始计时，与整局计时起点一致。
+            self.question_shown_at = now_perf
+            self.question_shown_datetime = now_datetime
             self.timer.start(10)  # 在输入第一个字符后开始计时，每10毫秒更新一次
             self.input_text_started = True
 
@@ -788,6 +799,18 @@ class BlindTyping(QWidget):
                 else 0
             )
             session_stats = self.calculate_session_statistics()
+            sum_duration = sum(
+                record["duration_seconds"]
+                for record in self.session_records
+            )
+            elapsed_seconds = elapsed_milliseconds / 1000
+            timing_gap = abs(sum_duration - elapsed_seconds)
+            if session_stats["count"] and timing_gap > 2.0:
+                print(
+                    "Warning: 逐题耗时总和与整局计时相差 "
+                    f"{timing_gap:.3f}s "
+                    f"(逐题={sum_duration:.3f}s, 整局={elapsed_seconds:.3f}s)"
+                )
             slow_questions = self.format_slow_questions(
                 session_stats["slow_questions"]
             )
