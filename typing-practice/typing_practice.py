@@ -121,7 +121,7 @@ class BlindTyping(QWidget):
         self.restart_button.clicked.connect(self.restart_practice)  # 点击按钮时触发重新开始方法
 
         self.input_edit.textChanged.connect(self.start_timer_if_needed)
-        self.input_edit.textChanged.connect(self.auto_submit_if_correct)
+        self.input_edit.textChanged.connect(self.auto_submit_if_needed)
         self.input_edit.returnPressed.connect(self.check_input)
 
         mode_row = QHBoxLayout()
@@ -575,11 +575,22 @@ class BlindTyping(QWidget):
         self.input_edit.clear()
         self.input_edit.setFocus()
 
-    def auto_submit_if_correct(self, text):
-        if (self.auto_submit
+    def auto_submit_if_needed(self, text):
+        """自动提交：完全正确，或已上屏汉字且不再匹配答案时提交。
+
+        输入中的拼音是 ASCII 字符，不会触发提交；
+        已上屏的汉字如果只是答案前缀，视为还没输完，继续等待。
+        """
+        if not (self.auto_submit
                 and self.input_text_started
-                and self.current_word_index < self.total_word_count
-                and text == self.practice_words[self.current_word_index]):
+                and self.current_word_index < self.total_word_count):
+            return
+
+        question_text = self.practice_words[self.current_word_index]
+        if text == question_text:
+            self.check_input()
+        elif (any(ord(character) > 127 for character in text)
+                and not question_text.startswith(text)):
             self.check_input()
 
     def start_timer_if_needed(self, text):
