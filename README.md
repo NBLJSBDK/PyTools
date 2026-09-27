@@ -7,12 +7,12 @@
 ```
 PyTools/
 ├── typing-practice/      # 盲打训练工具
-├── 文件查重/            # 文件查重工具
-├── ffmpeg/             # 音视频处理工具
-├── Hash/               # 文件哈希计算
-├── PDF/                # PDF处理工具集
-├── puterPrice/         # 硬件配置计算
-└── QT例子/             # PyQt示例程序
+├── file-dedup/           # 文件查重工具
+├── ffmpeg/               # 音视频处理工具
+├── hash/                 # 文件哈希计算
+├── pdf/                  # PDF处理工具集
+├── puter-price/          # 硬件配置计算
+└── qt-examples/          # PyQt示例程序
 ```
 
 ## 主要功能
@@ -36,7 +36,7 @@ PyTools/
 
 ### 2. 文件查重
 - 功能:图片去重工具
-- 主程序:`文件查重.py`
+- 主程序:`file-dedup/文件查重.py`
 
 ### 3. FFmpeg工具集
 - 功能:音视频处理工具
