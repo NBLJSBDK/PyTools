@@ -175,6 +175,8 @@ class BlindTyping(QWidget):
         # 播放声音
         self.play_sound(os.path.join(os.path.dirname(__file__), 'misc', 'ready', '卫星图.wav'))
 
+        self.input_edit.setFocus()
+
     def start_new_session(self):
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_records = []
@@ -431,7 +433,7 @@ class BlindTyping(QWidget):
     def change_mode(self, mode):
         self.current_mode = mode
         self.practice_times_spin.setEnabled(mode != "单次测速")
-        self.restart_practice()
+        self.restart_application()
 
     def change_word_file(self, filename):
         filepath = self.get_word_file_path(filename)
@@ -452,7 +454,7 @@ class BlindTyping(QWidget):
 
         self.current_word_file = filename
         self.words = words
-        self.restart_practice()
+        self.restart_application()
 
     def change_practice_times(self, value):
         self.practice_times = value
@@ -461,6 +463,7 @@ class BlindTyping(QWidget):
     def change_input_method(self, method):
         """输入法选项只用于记录，不影响答案判定。"""
         self.input_method = method
+        self.restart_application()
 
     def change_auto_submit(self, checked):
         self.auto_submit = checked
@@ -605,6 +608,11 @@ class BlindTyping(QWidget):
     def update_timer(self):
         self.elapsed_time = self.elapsed_time.addMSecs(10)  # 每10毫秒加10毫秒
         self.timer_label.setText(self.elapsed_time.toString("mm:ss:zzz"))  # 更新计时器标签
+
+    def restart_application(self):
+        # Qt5 Wayland 下切换下拉框会丢失键盘焦点，重启进程以恢复输入。
+        self.save_config()
+        os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
 
     def restart_practice(self):
         # 重新开始练习，重置所有参数
