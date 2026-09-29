@@ -53,6 +53,7 @@ class BlindTyping(QWidget):
         self.practice_auto_submit = None
         self.input_method = self.settings["default_input_method"]
         self.auto_submit = self.settings["default_auto_submit"]
+        self.restart_on_error = self.settings["default_restart_on_error"]
         self.current_word_file = self.settings["default_word_file"]
         self.correct_count = 0
         self.mistake_count = 0
@@ -110,6 +111,8 @@ class BlindTyping(QWidget):
         self.input_method_combo.setCurrentText(self.input_method)
         self.auto_submit_checkbox = QCheckBox("自动提交")
         self.auto_submit_checkbox.setChecked(self.auto_submit)
+        self.restart_on_error_checkbox = QCheckBox("错误就重开")
+        self.restart_on_error_checkbox.setChecked(self.restart_on_error)
         self.prepare_practice_words()
         self.start_new_session()
 
@@ -156,7 +159,10 @@ class BlindTyping(QWidget):
         vbox.addLayout(hbox)
         vbox.addWidget(self.input_edit)
         vbox.addWidget(self.timer_label, alignment=Qt.AlignRight)  # 将计时器标签右对齐
-        vbox.addWidget(self.restart_button)  # 添加重新开始按钮到布局
+        restart_row = QHBoxLayout()
+        restart_row.addWidget(self.restart_on_error_checkbox)
+        restart_row.addWidget(self.restart_button, 1)
+        vbox.addLayout(restart_row)  # 添加重新开始按钮与错误就重开选项到布局
 
         self.setLayout(vbox)
         self.setWindowTitle('盲打训练')
@@ -165,6 +171,7 @@ class BlindTyping(QWidget):
         self.word_file_combo.currentTextChanged.connect(self.change_word_file)
         self.input_method_combo.currentTextChanged.connect(self.change_input_method)
         self.auto_submit_checkbox.toggled.connect(self.change_auto_submit)
+        self.restart_on_error_checkbox.toggled.connect(self.change_restart_on_error)
         self.practice_times_spin.setEnabled(self.current_mode != "单次测速")
         self.update_practice_display()
         self.show()
@@ -245,6 +252,11 @@ class BlindTyping(QWidget):
         else:
             default_auto_submit = True
 
+        restart_on_error_value = settings.get(
+            "default_restart_on_error", "0"
+        ).strip().lower()
+        default_restart_on_error = restart_on_error_value in true_flags
+
         input_methods = []
         if parser.has_section("输入法列表"):
             for name, flag in parser["输入法列表"].items():
@@ -265,6 +277,7 @@ class BlindTyping(QWidget):
             "default_times": practice_times,
             "default_input_method": input_method,
             "default_auto_submit": default_auto_submit,
+            "default_restart_on_error": default_restart_on_error,
             "default_word_file": word_file,
             "input_methods": input_methods,
         }
@@ -468,6 +481,9 @@ class BlindTyping(QWidget):
     def change_auto_submit(self, checked):
         self.auto_submit = checked
 
+    def change_restart_on_error(self, checked):
+        self.restart_on_error = checked
+
     def save_config(self):
         filepath = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -480,6 +496,9 @@ class BlindTyping(QWidget):
             "default_word_file": self.current_word_file,
             "default_auto_submit": (
                 "1" if self.auto_submit_checkbox.isChecked() else "0"
+            ),
+            "default_restart_on_error": (
+                "1" if self.restart_on_error_checkbox.isChecked() else "0"
             ),
         }
 
@@ -572,6 +591,9 @@ class BlindTyping(QWidget):
             self.current_question_errors += 1
             self.play_punishment_sound()
             self.EncourageSound_count = 0
+            if self.restart_on_error_checkbox.isChecked():
+                self.restart_practice()
+                return
         self.input_edit.clear()
         self.input_edit.setFocus()
 
