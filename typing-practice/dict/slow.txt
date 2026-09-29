@@ -1,0 +1,19 @@
+# 慢词强化词表：按历史练习平均耗时自动生成
+# 筛选规则：data.txt 与 data1.txt 会话中平均耗时 >= 2.0 秒
+# 生成于 2026-09-29，数据源 typing_detail_log.csv
+# 每行一个词，# 开头为注释
+够不着  # data1.txt 平均4.61s
+节哀顺变  # data1.txt 平均4.47s
+单身  # data1.txt 平均4.06s
+上班  # data.txt 平均3.11s
+肯德基  # data1.txt 平均2.63s
+不知道  # data1.txt 平均2.31s
+死亡  # data1.txt 平均2.30s
+残忍  # data1.txt 平均2.30s
+喝水  # data1.txt 平均2.30s
+形式  # data1.txt 平均2.29s
+人生  # data.txt 平均2.12s
+学姐  # data.txt 平均2.11s
+中国  # data.txt 平均2.11s
+走心  # data.txt 平均2.08s
+昂扬  # data.txt 平均2.06s
