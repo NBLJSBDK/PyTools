@@ -886,7 +886,7 @@ class BlindTyping(QWidget):
             log_line = (
                 f"开始={start_text} 用时={elapsed} "
                 f"每分钟输入字数={characters_per_minute:.1f} "
-                f"正确率={accuracy:.1f}% 输入法={input_method} "
+                f"正确率={accuracy:6.2f}% 输入法={input_method} "
                 f"结束={end_text} 数据文件={self.current_word_file} "
                 f"自动提交={auto_submit_text} "
                 f"模式={self.current_mode} "
