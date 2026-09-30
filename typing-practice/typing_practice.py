@@ -278,9 +278,9 @@ class BlindTyping(QWidget):
         input_method = settings.get("default_input_method", "自然码双拼").strip()
         if input_method not in input_methods:
             input_method = input_methods[0]
-        word_file = settings.get("default_word_file", "data.txt").strip()
+        word_file = settings.get("default_word_file", "data0.txt").strip()
         if not word_file:
-            word_file = "data.txt"
+            word_file = "data0.txt"
 
         return {
             "default_mode": mode,
