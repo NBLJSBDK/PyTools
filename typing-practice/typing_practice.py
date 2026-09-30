@@ -857,7 +857,7 @@ class BlindTyping(QWidget):
             repeat_count = (
                 str(self.practice_times)
                 if self.current_mode != "单次测速"
-                else "不适用"
+                else "1"
             )
             elapsed_milliseconds = self.elapsed_time.msecsSinceStartOfDay()
             elapsed_minutes = elapsed_milliseconds / 60000
