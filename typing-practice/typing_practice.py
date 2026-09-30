@@ -51,6 +51,7 @@ class BlindTyping(QWidget):
         self.practice_start_datetime = None
         self.practice_input_method = None
         self.practice_auto_submit = None
+        self.practice_restart_on_error = None
         self.input_method = self.settings["default_input_method"]
         self.auto_submit = self.settings["default_auto_submit"]
         self.restart_on_error = self.settings["default_restart_on_error"]
@@ -626,6 +627,7 @@ class BlindTyping(QWidget):
             self.practice_start_datetime = QDateTime.currentDateTime()
             self.practice_input_method = self.input_method_combo.currentText()
             self.practice_auto_submit = self.auto_submit_checkbox.isChecked()
+            self.practice_restart_on_error = self.restart_on_error_checkbox.isChecked()
             # 第一题从第一次实际输入开始计时，与整局计时起点一致。
             self.question_shown_at = now_perf
             self.question_shown_datetime = now_datetime
@@ -664,6 +666,7 @@ class BlindTyping(QWidget):
         self.practice_start_datetime = None
         self.practice_input_method = None
         self.practice_auto_submit = None
+        self.practice_restart_on_error = None
         self.correct_count = 0
         self.mistake_count = 0
         self.correct_character_count = 0
@@ -837,6 +840,10 @@ class BlindTyping(QWidget):
             if auto_submit is None:
                 auto_submit = self.auto_submit_checkbox.isChecked()
             auto_submit_text = "是" if auto_submit else "否"
+            restart_on_error = self.practice_restart_on_error
+            if restart_on_error is None:
+                restart_on_error = self.restart_on_error_checkbox.isChecked()
+            restart_on_error_text = "是" if restart_on_error else "否"
             elapsed = self.elapsed_time.toString('mm:ss:zzz')
             repeat_count = (
                 str(self.practice_times)
@@ -866,7 +873,9 @@ class BlindTyping(QWidget):
             end_short_text = end_datetime.toString("yyyy-M-d h:mm:ss")
 
             achievement_line = (
-                f"模式={self.current_mode} 输入法={input_method} "
+                f"模式={self.current_mode} "
+                f"错误就重开={restart_on_error_text} "
+                f"输入法={input_method} "
                 f"自动提交={auto_submit_text} "
                 f"重复次数={repeat_count} 记录={elapsed} "
                 f"字数={self.target_character_count} "
@@ -890,6 +899,7 @@ class BlindTyping(QWidget):
                 f"结束={end_text} 数据文件={self.current_word_file} "
                 f"自动提交={auto_submit_text} "
                 f"模式={self.current_mode} "
+                f"错误就重开={restart_on_error_text} "
                 f"重复次数={repeat_count} 词表词数={len(self.words)} "
                 f"总题数={self.total_word_count} 字数={self.target_character_count} "
                 f"实际提交字数={self.input_character_count} "
