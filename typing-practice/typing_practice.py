@@ -416,6 +416,10 @@ class BlindTyping(QWidget):
         display_index = self.current_word_index + 1
         if self.current_mode == "顺序学习":
             display_index = self.current_word_index // self.practice_times + 1
+            return (
+                f"{display_index}/{len(self.words)}."
+                f"{self.practice_words[self.current_word_index]}"
+            )
         return f"{display_index}.{self.practice_words[self.current_word_index]}"
 
     def update_practice_display(self):
@@ -436,8 +440,8 @@ class BlindTyping(QWidget):
             self.question_shown_at = None
             self.question_shown_datetime = None
         if self.current_mode == "顺序学习":
-            completed_count = self.current_word_index % self.practice_times
-            self.count_label.setText(f"{completed_count}/{self.practice_times}")
+            current_round = self.current_word_index % self.practice_times + 1
+            self.count_label.setText(f"{current_round}/{self.practice_times}")
         else:
             self.count_label.setText(
                 f"{self.current_word_index + 1}/{self.total_word_count}"
