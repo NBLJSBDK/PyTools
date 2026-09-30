@@ -28,6 +28,15 @@ from PyQt5.QtWidgets import (
 class BlindTyping(QWidget):
     STALL_FACTOR = 2.0
     TOP_N = 10
+    SESSION_LOG_FIELDNAMES = [
+        "开始", "用时", "每分钟输入字数", "正确率",
+        "自动提交", "模式", "错误就重开", "重复次数", "词表词数", "总题数",
+        "字数", "实际提交字数", "正确字数", "正确", "错误", "尝试",
+        "数据文件", "输入法", "结束", "会话ID",
+        "热身题排除", "统计题数", "提交间隔平均", "提交间隔中位数",
+        "提交间隔P90", "提交间隔P95", "提交间隔最大", "卡顿阈值", "卡顿次数",
+        "首次正确题数", "首次正确率", "最慢题目TOP10", "最慢词平均TOP10", "备注",
+    ]
 
     def __init__(self):
         super().__init__()
@@ -892,40 +901,59 @@ class BlindTyping(QWidget):
                 f"卡顿次数={session_stats['stall_count']} "
                 f"产生时间={end_short_text}\n"
             )
-            log_line = (
-                f"开始={start_text} 用时={elapsed} "
-                f"每分钟输入字数={characters_per_minute:.1f} "
-                f"正确率={accuracy:6.2f}% 输入法={input_method} "
-                f"结束={end_text} 数据文件={self.current_word_file} "
-                f"自动提交={auto_submit_text} "
-                f"模式={self.current_mode} "
-                f"错误就重开={restart_on_error_text} "
-                f"重复次数={repeat_count} 词表词数={len(self.words)} "
-                f"总题数={self.total_word_count} 字数={self.target_character_count} "
-                f"实际提交字数={self.input_character_count} "
-                f"正确字数={self.correct_character_count} "
-                f"正确={self.correct_count} "
-                f"错误={self.mistake_count} 尝试={total_attempts} "
-                f"会话ID={self.session_id} "
-                f"热身题排除=1 统计题数={session_stats['count']} "
-                f"提交间隔平均={session_stats['average']:.3f}s "
-                f"提交间隔中位数={session_stats['median']:.3f}s "
-                f"提交间隔P90={session_stats['p90']:.3f}s "
-                f"提交间隔P95={session_stats['p95']:.3f}s "
-                f"提交间隔最大={session_stats['maximum']:.3f}s "
-                f"卡顿阈值={session_stats['stall_threshold']:.3f}s "
-                f"卡顿次数={session_stats['stall_count']} "
-                f"首次正确题数={session_stats['first_try_correct_count']} "
-                f"首次正确率={session_stats['first_try_correct_rate']:.1f}% "
-                f"最慢题目TOP10={slow_questions} "
-                f"最慢词平均TOP10={slow_words}"
-                f"\n"
+            session_row = {
+                "开始": start_text,
+                "用时": elapsed,
+                "每分钟输入字数": f"{characters_per_minute:.1f}",
+                "正确率": f"{accuracy:6.2f}%",
+                "自动提交": auto_submit_text,
+                "模式": self.current_mode,
+                "错误就重开": restart_on_error_text,
+                "重复次数": repeat_count,
+                "词表词数": str(len(self.words)).zfill(3),
+                "总题数": str(self.total_word_count).zfill(3),
+                "字数": str(self.target_character_count).zfill(3),
+                "实际提交字数": str(self.input_character_count).zfill(3),
+                "正确字数": str(self.correct_character_count).zfill(3),
+                "正确": str(self.correct_count).zfill(3),
+                "错误": str(self.mistake_count).zfill(3),
+                "尝试": str(total_attempts).zfill(3),
+                "数据文件": self.current_word_file,
+                "输入法": input_method,
+                "结束": end_text,
+                "会话ID": self.session_id,
+                "热身题排除": "1",
+                "统计题数": str(session_stats["count"]),
+                "提交间隔平均": f"{session_stats['average']:.3f}s",
+                "提交间隔中位数": f"{session_stats['median']:.3f}s",
+                "提交间隔P90": f"{session_stats['p90']:.3f}s",
+                "提交间隔P95": f"{session_stats['p95']:.3f}s",
+                "提交间隔最大": f"{session_stats['maximum']:.3f}s",
+                "卡顿阈值": f"{session_stats['stall_threshold']:.3f}s",
+                "卡顿次数": str(session_stats["stall_count"]),
+                "首次正确题数": str(session_stats["first_try_correct_count"]),
+                "首次正确率": f"{session_stats['first_try_correct_rate']:.1f}%",
+                "最慢题目TOP10": slow_questions,
+                "最慢词平均TOP10": slow_words,
+                "备注": "",
+            }
+            session_log_path = os.path.join(base_dir, "typing_log.csv")
+            has_session_header = (
+                os.path.exists(session_log_path)
+                and os.path.getsize(session_log_path) > 0
             )
+            with open(session_log_path, "a", encoding="utf-8", newline="") as file:
+                writer = csv.DictWriter(
+                    file,
+                    fieldnames=self.SESSION_LOG_FIELDNAMES,
+                    lineterminator="\n",
+                )
+                if not has_session_header:
+                    writer.writeheader()
+                writer.writerow(session_row)
 
             with open(os.path.join(base_dir, 'achievement.txt'), 'a', encoding='utf-8') as file:
                 file.write(achievement_line)
-            with open(os.path.join(base_dir, 'typing_log.txt'), 'a', encoding='utf-8') as file:
-                file.write(log_line)
             self.append_detail_log(base_dir)
         except Exception as e:
             print(f"Error while saving achievement: {e}")
