@@ -47,6 +47,7 @@ pycparser==2.21
 pycryptodome==3.21.0
 pydub==0.25.1
 pyelftools==0.29
+pypdf
 PyGetWindow==0.0.9
 PyMsgBox==1.0.9
 PyMuPDF==1.25.0
@@ -77,6 +78,7 @@ starlette==0.31.1
 tabulate==0.9.0
 threadpoolctl==3.2.0
 tinycss2==1.2.1
+tkinterdnd2
 tzdata==2024.2
 urllib3==2.1.0
 uvicorn==0.23.2
