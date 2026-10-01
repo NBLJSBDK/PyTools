@@ -36,13 +36,13 @@ PyTools/
 
 ### 2. 文件查重
 - 功能:图片去重工具
-- 主程序:`file-dedup/文件查重.py`
+- 主程序:`file-dedup/find-duplicates.py`
 
 ### 3. FFmpeg工具集
 - 功能:音视频处理工具
 - 包含:
-  - `音频提取.py`
-  - `音频压缩.py`
+  - `extract-audio.py`
+  - `compress-audio.py`
   - `常用指令.txt`
 
 ### 4. Hash计算
@@ -52,23 +52,23 @@ PyTools/
 ### 5. PDF工具集
 - 功能:PDF文件处理
 - 包含:
-  - `加密解密.py`
-  - `水印.py`
-  - `逆时针旋转.py`
+  - `pdf-password.pyw`
+  - `watermark.py`
+  - `rotate-pages.py`
   - 字体文件:`仿宋_GB2312.TTF`
 
 ### 6. 配置计算器
 - 功能:硬件配置价格计算
 - 包含:
-  - `配置计算器.py`
+  - `price-calculator.py`
   - `梦中情机.txt`（配置模板）
 
 ### 7. PyQt示例
 - 功能:PyQt GUI编程示例
 - 包含:
-  - `进度.py`
-  - `框.pyw`
-  - `总演示.pyw`
+  - `qt-progress-demo.py`
+  - `qt-layout-demo.pyw`
+  - `qt-demo.pyw`
 
 ## 使用说明
 
