@@ -5,3 +5,12 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+
+# Secrets
+api_keys.json
+
+# Runtime output and logs
+asr/output/
+crash.log
+startup_error.log
+pdf_merger.log
