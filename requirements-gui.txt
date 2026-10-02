@@ -1,0 +1,7 @@
+# GUI / 轻依赖工具所需依赖（配合项目根目录的 .venv 使用）
+# 多数工具只用标准库，不需要这里面的任何包
+
+PyQt5==5.15.10
+beautifulsoup4
+pypinyin
+tqdm

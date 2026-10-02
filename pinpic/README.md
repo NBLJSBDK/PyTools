@@ -23,27 +23,28 @@ python pinpic.py 图片路径
 
 退出请使用托盘菜单中的“退出 Pinpic”，或按 `Esc` 关闭贴图。
 
-首次使用先安装依赖：
+## 环境
+
+需要 PySide6，依赖声明见同目录的 `requirements.txt`（`PySide6>=6.6`）。
+
+默认用本目录的独立环境（`install.sh` 创建 `venv/`）：
 
 ```bash
 ./install.sh
 ```
 
-运行：
+Windows 上这两个脚本跑不了，可以自己建环境：
 
-```bash
-./run.sh 图片路径
+```powershell
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install PySide6
+.\venv\Scripts\python.exe pinpic.py 图片路径
 ```
 
-运行时使用项目自己的环境：
+> NOTE: 环境不固定，也可以不用独立环境（全局装 PySide6）、或用仓库根目录的共享 `.venv`、或改用 uv，判断标准见仓库根 [AGENTS.md](../AGENTS.md) 第五节。
 
-```bash
-./.venv/bin/python pinpic.py 图片路径
-```
+## 说明
 
-如果希望继续使用 `python pinpic.py 图片路径`，请先在当前终端激活环境：
-
-```bash
-source .venv/bin/activate
-python pinpic.py 图片路径
-```
+- 首次使用先运行 `./install.sh`，之后用 `./run.sh 图片路径` 启动。
+- 用项目自己的环境直接运行：`./.venv/bin/python pinpic.py 图片路径`；想继续用 `python pinpic.py`，先 `source .venv/bin/activate`。
+- `install.sh` 与 `run.sh` 是为 **Linux** 写的：除了创建 `venv`，还会把系统 fcitx5 的 Qt 输入法插件软链进环境，并检查 GStreamer 解码器；`run.sh` 使用 `venv/bin/python`。
