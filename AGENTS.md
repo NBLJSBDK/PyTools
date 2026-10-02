@@ -29,18 +29,24 @@
 
 ### 0.3 Git 操作规则（第三优先级）
 
-提交说明必须使用下列允许的类型，类型后可按需添加作用域，例如 `feat(pdf): ...`。
+提交说明必须使用下列允许的类型，**并且必须带作用域**，例如 `feat(pdf): ...`。
+
+作用域规则：
+
+- 改动单个工具：用该工具的顶层目录名，例如 `feat(asr):`、`fix(qr):`。
+- 改动涉及多个工具：用英文逗号分隔，例如 `refactor(asr,pdf):`。
+- 改动全仓库：**本项目统一用 `repo`**，例如 `docs(repo):`、`chore(repo):`。
 
 | type | 用途 | 示例 |
 |---|---|---|
-| `feat` | 新功能（feature） | `feat(auth): 增加微信登录功能` |
-| `fix` | 修补 Bug | `fix(menu): 修复下拉菜单在移动端不显示的错误` |
-| `refactor` | 重构，不新增功能且不修复 Bug | `refactor: 简化逻辑判断函数` |
-| `perf` | 性能优化 | `perf: 提高渲染效率` |
-| `docs` | 文档变动 | `docs: 更新 API 使用说明` |
-| `test` | 增加或调整测试 | `test: 添加登录模块单元测试` |
-| `chore` | 构建过程或辅助工具变动 | `chore: 升级依赖库` |
-| `wip` | 工作进行中（Work In Progress） | `wip: 正在处理搜索建议逻辑` |
+| `feat` | 新功能（feature） | `feat(asr): 增加方言识别` |
+| `fix` | 修补 Bug | `fix(qr): 修复二维码尺寸校验` |
+| `refactor` | 重构，不新增功能且不修复 Bug | `refactor(repo): 简化脚本命名` |
+| `perf` | 性能优化 | `perf(file-dedup): 改用分块哈希` |
+| `docs` | 文档变动 | `docs(repo): 更新 README` |
+| `test` | 增加或调整测试 | `test(hash): 补充哈希对比用例` |
+| `chore` | 构建过程或辅助工具变动 | `chore(repo): 升级依赖` |
+| `wip` | 工作进行中（Work In Progress） | `wip(asr): 正在调整切分逻辑` |
 
 禁止使用模糊提交类型：`add`、`update`、`modify`、`big`。
 
