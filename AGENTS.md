@@ -138,7 +138,7 @@ PyTools/
 | qr | `local_qr.pyw` | 本地生成二维码，支持自定义尺寸 | `.pyw` 双击 |
 | qt-examples | `qt-demo.pyw`、`qt-layout-demo.pyw`、`qt-progress-demo.py` | PyQt5 布局与控件示例 | `.pyw` 双击 |
 | shot-cp | `clip2file.py` | 全局热键 `Ctrl+V`，把剪贴板图片存成时间戳 PNG 到脚本目录 | 常驻运行（会占用 Ctrl+V） |
-| typing-practice | `typing_practice.py` | 盲打训练，含词表、音效、训练日志与卡顿分析（PyQt5） | 独立环境，`install.sh` / `run.sh` |
+| typing-practice | `typing_practice.py` | 盲打训练，含词表、音效、训练日志与卡顿分析（PyQt5） | Linux `install.sh` / `run.sh`；Windows `install.bat` / `run.bat` |
 
 ## 四、运行方式
 
@@ -155,7 +155,7 @@ PyTools/
 |---|---|---|
 | 不用环境 | 只用标准库 | 直接 `python 脚本路径` |
 | 共享 venv | 依赖少（几个纯 Python 包 / 有预编译包的库） | 用仓库根目录的 `.venv` + `requirements-gui.txt` |
-| 独立 venv | 依赖需要隔离，或自带 `install.sh` / `run.sh` | 工具目录内自己的 `.venv` |
+| 独立 venv | 依赖需要隔离，或自带安装脚本（`install.sh` / `install.bat`） | 工具目录内自己的 `.venv` |
 | uv 工程 | 依赖重、需要精确锁版本或跨平台复现 | `pyproject.toml` + `uv.lock` |
 
 判断"重不重"看三点：第三方依赖数量、是否需要现场编译（带 C 扩展的包）、依赖树深度。既深又要精确复现的（当前是 `asr`）用 uv；其余优先简单方式。
@@ -167,11 +167,11 @@ PyTools/
 | 直接运行（无第三方依赖） | `ffmpeg/`、`file-dedup/`、`prefix-viewer/`、`hash/check_hash.py` |
 | 共享 venv | 需要 PyQt5 或少量依赖的 GUI / 命令行工具 |
 | uv 管理 | `asr`（`tencentcloud-sdk-python`、`cos-python-sdk-v5`） |
-| 独立 venv（Linux 脚本） | `typing-practice`、`pinpic` |
+| 独立 venv（自带安装脚本） | `typing-practice`（Linux 用 `.sh`，Windows 用 `.bat`）、`pinpic`（仅 Linux 脚本） |
 
-`typing-practice/install.sh` 与 `pinpic/install.sh` 是为 Linux 写的：创建 `venv/`、把系统 fcitx5 的 Qt 输入法插件软链进 venv、检查 GStreamer 解码器；`run.sh` 使用 `venv/bin/python` 并把日志重定向到 `/tmp/`。这两个工具目前在 Windows 上无法用这套脚本直接跑。
+`typing-practice/install.sh` 与 `pinpic/install.sh` 是为 Linux 写的：创建 `venv/`、把系统 fcitx5 的 Qt 输入法插件软链进 venv、检查 GStreamer 解码器；`run.sh` 使用 `venv/bin/python` 并把日志重定向到 `/tmp/`。`typing-practice` 已配 Windows 版 `install.bat` / `run.bat`（定位 Python、重建 venv、装 PyQt5，用 `pythonw` 无窗口启动）；`pinpic` 目前只有 Linux 脚本，Windows 上需自行建环境。
 
-**平台边界**：仓库长期以 Windows 为主要使用环境，但现实是两种平台混杂——`typing-practice`、`pinpic` 的环境脚本是 Linux 专属，`asr/splitter.py` 依赖 WSL。新增或改造工具时按 Windows 优先处理，遇到平台专属代码要显式说明适用范围。
+**平台边界**：仓库长期以 Windows 为主要使用环境，但现实是两种平台混杂——`typing-practice`、`pinpic` 的环境脚本是 Linux 专属（`typing-practice` 另有 Windows 版 `.bat`），`asr/splitter.py` 依赖 WSL。新增或改造工具时按 Windows 优先处理，遇到平台专属代码要显式说明适用范围。
 
 ## 六、依赖与凭据
 
