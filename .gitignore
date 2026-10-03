@@ -14,3 +14,7 @@ asr/output/
 crash.log
 startup_error.log
 pdf_merger.log
+
+# Scratch space for temporary files
+temp/
+
