@@ -2,6 +2,7 @@
 # 筛选规则：data.txt 与 data1.txt 会话中平均耗时 >= 2.0 秒
 # 生成于 2026-09-29，数据源 typing_detail_log.csv
 # 每行一个词，# 开头为注释
+# reps = 7
 够不着  # data1.txt 平均4.61s
 节哀顺变  # data1.txt 平均4.47s
 单身  # data1.txt 平均4.06s

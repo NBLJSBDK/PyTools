@@ -28,6 +28,8 @@ from PyQt5.QtWidgets import (
 class BlindTyping(QWidget):
     STALL_FACTOR = 2.0
     TOP_N = 10
+    # 词表可在注释里用「# reps = N」声明自己的默认重复次数，范围与次数控件一致。
+    REPS_DIRECTIVE_LIMIT = 99
     SESSION_LOG_FIELDNAMES = [
         "开始", "用时", "每分钟输入字数", "正确率",
         "自动提交", "模式", "错误就重开", "重复次数", "词表词数", "总题数",
@@ -112,6 +114,8 @@ class BlindTyping(QWidget):
         self.practice_times_spin = QSpinBox()
         self.practice_times_spin.setRange(1, 99)
         self.practice_times_spin.setValue(self.practice_times)
+        # 启动时同样套用词表声明的默认次数，优先级高于 config.ini 的 default_times。
+        self.apply_word_file_reps(self.current_word_file)
         self.practice_times_spin.setSuffix(" 次")
         self.word_file_combo = QComboBox()
         self.word_file_combo.addItems(self.word_files)
@@ -375,6 +379,40 @@ class BlindTyping(QWidget):
             return []
         return words
 
+    def load_word_file_reps(self, filename):
+        """读取词表声明的默认重复次数；未声明、不可读或取值非法时返回 None。"""
+        filepath = self.get_word_file_path(filename)
+        if filepath is None:
+            return None
+
+        try:
+            # utf-8-sig：记事本另存的 UTF-8 文件带 BOM，用它能一并吃掉行首的 BOM。
+            with open(filepath, "r", encoding="utf-8-sig") as file:
+                for line in file:
+                    stripped = line.strip()
+                    if not stripped.startswith("#"):
+                        continue
+                    key, separator, value = stripped.lstrip("#").partition("=")
+                    if not separator or key.strip().casefold() != "reps":
+                        continue
+                    try:
+                        reps = int(value.strip())
+                    except ValueError:
+                        return None
+                    if 1 <= reps <= self.REPS_DIRECTIVE_LIMIT:
+                        return reps
+                    return None
+        except OSError as error:
+            print(f"Error while reading word file reps: {error}")
+        return None
+
+    def apply_word_file_reps(self, filename):
+        """把词表声明的默认次数写入次数控件；未声明时保持当前值不动。"""
+        reps = self.load_word_file_reps(filename)
+        if reps is None or reps == self.practice_times_spin.value():
+            return
+        self.practice_times_spin.setValue(reps)
+
     def prepare_practice_words(self):
         """根据当前模式生成统一的练习题目序列。"""
         if self.current_mode == "顺序学习":
@@ -481,6 +519,8 @@ class BlindTyping(QWidget):
 
         self.current_word_file = filename
         self.words = words
+        # 在重启应用之前套用词表声明的默认次数，重启时才会写进 config.ini。
+        self.apply_word_file_reps(filename)
         self.restart_application()
 
     def change_practice_times(self, value):

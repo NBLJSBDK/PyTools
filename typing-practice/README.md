@@ -11,7 +11,14 @@
 ./run.sh            # 启动，日志写到 /tmp/typing-practice.log
 ```
 
-**Windows 上直接运行**（不依赖那两个 sh 脚本，代码本身跨平台）：
+**Windows 上直接运行**：
+
+```powershell
+.\install.bat       # 首次：定位 Python、创建 venv 并安装 PyQt5
+.\run.bat           # 启动，用 pythonw 无控制台窗口
+```
+
+不想用脚本、手动建环境也可以：
 
 ```powershell
 cd D:\PyTools\typing-practice
@@ -47,6 +54,8 @@ D:\PyTools\.venv\Scripts\python.exe typing_practice.py
 ## 使用
 
 - **词表**：`dict\` 下的 `.txt`，在界面"词表"下拉框里切换，支持整行注释、行尾注释和空行。
+- **词表文件名统一 5 个字符**（如 `data0`、`gushi`、`slow1`、`drill`、`hand1`），这样词表名在所有显示和统计处宽度一致；新增词表请沿用这个长度。
+- **词表自带默认次数**：在词表注释里写一行 `# reps = 2`，切换到该词表时"次数"会自动变成这个值；手动改"次数"仍然有效，切回该词表时再次套用它的声明。未声明（或写 0、100、非数字）则保持当前值不动。
 - **模式**：顺序学习、乱序巩固、单次测速。
 - **配置**：`config.ini` 存默认模式、次数、输入法、自动提交等；程序退出时自动保存当前设置。
 - **记录**：`typing_log.csv`（每局汇总）与 `typing_detail_log.csv`（逐题时间、提交间隔、错误次数）。
