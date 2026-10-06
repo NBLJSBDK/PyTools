@@ -118,8 +118,14 @@ class BlindTyping(QWidget):
         self.apply_word_file_reps(self.current_word_file)
         self.practice_times_spin.setSuffix(" 次")
         self.word_file_combo = QComboBox()
-        self.word_file_combo.addItems(self.word_files)
-        self.word_file_combo.setCurrentText(self.current_word_file)
+        # 显示「文件名 — 说明」，但把文件名藏在 itemData 里，避免中文进入 self.current_word_file。
+        for word_file in self.word_files:
+            self.word_file_combo.addItem(
+                self.word_file_display_text(word_file), word_file
+            )
+        self.word_file_combo.setCurrentIndex(
+            self.word_file_combo.findData(self.current_word_file)
+        )
         self.input_method_combo = QComboBox()
         self.input_method_combo.addItems(self.settings["input_methods"])
         self.input_method_combo.setCurrentText(self.input_method)
@@ -379,12 +385,34 @@ class BlindTyping(QWidget):
             return []
         return words
 
+    def load_word_file_label(self, filename):
+        """取词表第一条注释作为界面显示用的说明；没有注释时返回空串。"""
+        filepath = self.get_word_file_path(filename)
+        if filepath is None:
+            return ""
+        try:
+            with open(filepath, "r", encoding="utf-8-sig") as file:
+                for line in file:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    if stripped.startswith("#"):
+                        return stripped.lstrip("#").strip()
+                    break
+        except OSError as error:
+            print(f"Error while reading word file label: {error}")
+        return ""
+
+    def word_file_display_text(self, filename):
+        """下拉框里显示的文字：文件名 + 词表自带的一句话说明。"""
+        label = self.load_word_file_label(filename)
+        return f"{filename}：{label}" if label else filename
+
     def load_word_file_reps(self, filename):
         """读取词表声明的默认重复次数；未声明、不可读或取值非法时返回 None。"""
         filepath = self.get_word_file_path(filename)
         if filepath is None:
             return None
-
         try:
             # utf-8-sig：记事本另存的 UTF-8 文件带 BOM，用它能一并吃掉行首的 BOM。
             with open(filepath, "r", encoding="utf-8-sig") as file:
@@ -500,12 +528,24 @@ class BlindTyping(QWidget):
         self.practice_times_spin.setEnabled(mode != "单次测速")
         self.restart_application()
 
-    def change_word_file(self, filename):
+    def selected_word_file(self):
+        """下拉框当前项对应的真实文件名；无有效项时返回 None。"""
+        index = self.word_file_combo.currentIndex()
+        if index < 0:
+            return None
+        return self.word_file_combo.itemData(index)
+
+    def change_word_file(self, _display_text):
+        filename = self.selected_word_file()
+        if filename is None:
+            return
         filepath = self.get_word_file_path(filename)
         if filepath is None or not os.path.isfile(filepath):
             self.report_word_file_error(f"选择的词表不存在：{filename}")
             self.word_file_combo.blockSignals(True)
-            self.word_file_combo.setCurrentText(self.current_word_file)
+            self.word_file_combo.setCurrentIndex(
+                self.word_file_combo.findData(self.current_word_file)
+            )
             self.word_file_combo.blockSignals(False)
             return
 
@@ -513,7 +553,9 @@ class BlindTyping(QWidget):
         if not words:
             self.report_word_file_error(f"选择的词表没有可训练内容：{filename}")
             self.word_file_combo.blockSignals(True)
-            self.word_file_combo.setCurrentText(self.current_word_file)
+            self.word_file_combo.setCurrentIndex(
+                self.word_file_combo.findData(self.current_word_file)
+            )
             self.word_file_combo.blockSignals(False)
             return
 
