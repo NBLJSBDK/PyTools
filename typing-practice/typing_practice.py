@@ -35,7 +35,7 @@ class BlindTyping(QWidget):
         "自动提交", "模式", "错误就重开", "重复次数", "词表词数", "总题数",
         "字数", "实际提交字数", "正确字数", "正确", "错误", "尝试",
         "数据文件", "输入法", "结束", "会话ID",
-        "热身题排除", "统计题数", "提交间隔平均", "提交间隔中位数",
+        "下词预览", "热身题排除", "统计题数", "提交间隔平均", "提交间隔中位数",
         "提交间隔P90", "提交间隔P95", "提交间隔最大", "卡顿阈值", "卡顿次数",
         "首次正确题数", "首次正确率", "最慢题目TOP10", "最慢词平均TOP10", "备注",
     ]
@@ -63,9 +63,11 @@ class BlindTyping(QWidget):
         self.practice_input_method = None
         self.practice_auto_submit = None
         self.practice_restart_on_error = None
+        self.practice_word_preview = None
         self.input_method = self.settings["default_input_method"]
         self.auto_submit = self.settings["default_auto_submit"]
         self.restart_on_error = self.settings["default_restart_on_error"]
+        self.word_preview = self.settings["default_word_preview"]
         self.current_word_file = self.settings["default_word_file"]
         self.correct_count = 0
         self.mistake_count = 0
@@ -131,6 +133,8 @@ class BlindTyping(QWidget):
         self.input_method_combo.setCurrentText(self.input_method)
         self.auto_submit_checkbox = QCheckBox("自动提交")
         self.auto_submit_checkbox.setChecked(self.auto_submit)
+        self.word_preview_checkbox = QCheckBox("下词预览")
+        self.word_preview_checkbox.setChecked(self.word_preview)
         self.restart_on_error_checkbox = QCheckBox("错误就重开")
         self.restart_on_error_checkbox.setChecked(self.restart_on_error)
         self.prepare_practice_words()
@@ -163,6 +167,7 @@ class BlindTyping(QWidget):
         input_row.addWidget(QLabel("输入法"))
         input_row.addWidget(self.input_method_combo)
         input_row.addWidget(self.auto_submit_checkbox)
+        input_row.addWidget(self.word_preview_checkbox)
         input_row.addStretch()
 
         controls_box = QVBoxLayout()
@@ -191,6 +196,7 @@ class BlindTyping(QWidget):
         self.word_file_combo.currentTextChanged.connect(self.change_word_file)
         self.input_method_combo.currentTextChanged.connect(self.change_input_method)
         self.auto_submit_checkbox.toggled.connect(self.change_auto_submit)
+        self.word_preview_checkbox.toggled.connect(self.change_word_preview)
         self.restart_on_error_checkbox.toggled.connect(self.change_restart_on_error)
         self.practice_times_spin.setEnabled(self.current_mode != "单次测速")
         self.update_practice_display()
@@ -277,6 +283,11 @@ class BlindTyping(QWidget):
         ).strip().lower()
         default_restart_on_error = restart_on_error_value in true_flags
 
+        word_preview_value = settings.get(
+            "default_word_preview", "0"
+        ).strip().lower()
+        default_word_preview = word_preview_value in true_flags
+
         input_methods = []
         if parser.has_section("输入法列表"):
             for name, flag in parser["输入法列表"].items():
@@ -298,6 +309,7 @@ class BlindTyping(QWidget):
             "default_input_method": input_method,
             "default_auto_submit": default_auto_submit,
             "default_restart_on_error": default_restart_on_error,
+            "default_word_preview": default_word_preview,
             "default_word_file": word_file,
             "input_methods": input_methods,
         }
@@ -488,15 +500,24 @@ class BlindTyping(QWidget):
 
         return practice_words
 
+    def find_next_word(self):
+        """返回之后第一个不同的词，用于预览下一词；没有则返回 None。"""
+        current_word = self.practice_words[self.current_word_index]
+        for index in range(self.current_word_index + 1, self.total_word_count):
+            if self.practice_words[index] != current_word:
+                return self.practice_words[index]
+        return None
+
     def format_word_label(self):
         display_index = self.current_word_index + 1
+        current_word = self.practice_words[self.current_word_index]
         if self.current_mode == "顺序学习":
             display_index = self.current_word_index // self.practice_times + 1
-            return (
-                f"{display_index}/{len(self.words)}."
-                f"{self.practice_words[self.current_word_index]}"
-            )
-        return f"{display_index}.{self.practice_words[self.current_word_index]}"
+            label = f"{display_index}/{len(self.words)}.{current_word}"
+        else:
+            label = f"{display_index}.{current_word}"
+        next_word = self.find_next_word() if self.word_preview else None
+        return f"{label} {next_word}" if next_word else label
 
     def update_practice_display(self):
         if self.current_word_index >= self.total_word_count:
@@ -580,6 +601,10 @@ class BlindTyping(QWidget):
     def change_restart_on_error(self, checked):
         self.restart_on_error = checked
 
+    def change_word_preview(self, checked):
+        self.word_preview = checked
+        self.restart_application()
+
     def save_config(self):
         filepath = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -595,6 +620,9 @@ class BlindTyping(QWidget):
             ),
             "default_restart_on_error": (
                 "1" if self.restart_on_error_checkbox.isChecked() else "0"
+            ),
+            "default_word_preview": (
+                "1" if self.word_preview_checkbox.isChecked() else "0"
             ),
         }
 
@@ -719,6 +747,7 @@ class BlindTyping(QWidget):
             self.practice_input_method = self.input_method_combo.currentText()
             self.practice_auto_submit = self.auto_submit_checkbox.isChecked()
             self.practice_restart_on_error = self.restart_on_error_checkbox.isChecked()
+            self.practice_word_preview = self.word_preview_checkbox.isChecked()
             # 第一题从第一次实际输入开始计时，与整局计时起点一致。
             self.question_shown_at = now_perf
             self.question_shown_datetime = now_datetime
@@ -758,6 +787,7 @@ class BlindTyping(QWidget):
         self.practice_input_method = None
         self.practice_auto_submit = None
         self.practice_restart_on_error = None
+        self.practice_word_preview = None
         self.correct_count = 0
         self.mistake_count = 0
         self.correct_character_count = 0
@@ -935,6 +965,10 @@ class BlindTyping(QWidget):
             if restart_on_error is None:
                 restart_on_error = self.restart_on_error_checkbox.isChecked()
             restart_on_error_text = "是" if restart_on_error else "否"
+            word_preview = self.practice_word_preview
+            if word_preview is None:
+                word_preview = self.word_preview_checkbox.isChecked()
+            word_preview_text = "1" if word_preview else "0"
             elapsed = self.elapsed_time.toString('mm:ss:zzz')
             repeat_count = (
                 str(self.practice_times)
@@ -986,7 +1020,7 @@ class BlindTyping(QWidget):
             session_row = {
                 "开始": start_text,
                 "用时": elapsed,
-                "每分钟输入字数": f"{characters_per_minute:.1f}",
+                "每分钟输入字数": f"{characters_per_minute:05.1f}",
                 "正确率": f"{accuracy:6.2f}%",
                 "自动提交": auto_submit_text,
                 "模式": self.current_mode,
@@ -1004,6 +1038,7 @@ class BlindTyping(QWidget):
                 "输入法": input_method,
                 "结束": end_text,
                 "会话ID": self.session_id,
+                "下词预览": word_preview_text,
                 "热身题排除": "1",
                 "统计题数": str(session_stats["count"]),
                 "提交间隔平均": f"{session_stats['average']:.3f}s",
