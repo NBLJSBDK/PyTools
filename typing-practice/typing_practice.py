@@ -30,6 +30,8 @@ class BlindTyping(QWidget):
     TOP_N = 10
     # 词表可在注释里用「# reps = N」声明自己的默认重复次数，范围与次数控件一致。
     REPS_DIRECTIVE_LIMIT = 99
+    # 随机测试专用词池：不出现在词表下拉框，选「随机测试」时自动使用。
+    RANDOM_TEST_POOL_FILE = "pool0.txt"
     SESSION_LOG_FIELDNAMES = [
         "开始", "用时", "每分钟输入字数", "正确率",
         "自动提交", "模式", "错误就重开", "重复次数", "词表词数", "总题数",
@@ -43,7 +45,14 @@ class BlindTyping(QWidget):
     def __init__(self):
         super().__init__()
         self.settings = self.load_config()
-        self.practice_times = self.settings["default_times"]
+        self.normal_times = self.settings["default_times"]
+        self.random_times = self.settings["default_random_times"]
+        self.practice_times = (
+            self.random_times
+            if self.settings["default_mode"] == "随机测试"
+            else self.normal_times
+        )
+        self.sample_count = self.settings["default_sample_count"]
         self.dict_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "dict",
@@ -69,6 +78,8 @@ class BlindTyping(QWidget):
         self.restart_on_error = self.settings["default_restart_on_error"]
         self.word_preview = self.settings["default_word_preview"]
         self.current_word_file = self.settings["default_word_file"]
+        self.source_file = self.current_word_file
+        self.source_word_count = 0
         self.correct_count = 0
         self.mistake_count = 0
         self.correct_character_count = 0
@@ -93,9 +104,11 @@ class BlindTyping(QWidget):
             sys.exit(1)
 
         if self.current_word_file not in self.word_files:
-            self.report_word_file_error(
-                f"配置中的词表不存在：{self.current_word_file}"
-            )
+            # 词池文件不参与下拉框，配置里残留池名时静默回退到第一个词表。
+            if not self.is_pool_file(self.current_word_file):
+                self.report_word_file_error(
+                    f"配置中的词表不存在：{self.current_word_file}"
+                )
             self.current_word_file = self.word_files[0]
 
         self.words = self.load_words_from_file(self.current_word_file)
@@ -111,23 +124,27 @@ class BlindTyping(QWidget):
         self.total_word_count = 0
 
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["顺序学习", "乱序巩固", "单次测速"])
+        self.mode_combo.addItems(["顺序学习", "乱序巩固", "单次测速", "随机测试"])
         self.mode_combo.setCurrentText(self.current_mode)
         self.practice_times_spin = QSpinBox()
         self.practice_times_spin.setRange(1, 99)
         self.practice_times_spin.setValue(self.practice_times)
         # 启动时同样套用词表声明的默认次数，优先级高于 config.ini 的 default_times。
-        self.apply_word_file_reps(self.current_word_file)
+        # 随机测试不练当前词表，次数用它自己的记忆，不套用词表声明。
+        if self.current_mode != "随机测试":
+            self.apply_word_file_reps(self.current_word_file)
+        # 词表声明可能改了次数，把最终值同步进当前模式的记忆。
+        self.practice_times = self.practice_times_spin.value()
+        self.store_mode_times(self.practice_times)
         self.practice_times_spin.setSuffix(" 次")
+        self.sample_count_label = QLabel("词数")
+        self.sample_count_spin = QSpinBox()
+        self.sample_count_spin.setRange(1, 999)
+        self.sample_count_spin.setValue(self.sample_count)
+        self.sample_count_spin.setSuffix(" 个")
         self.word_file_combo = QComboBox()
         # 显示「文件名 — 说明」，但把文件名藏在 itemData 里，避免中文进入 self.current_word_file。
-        for word_file in self.word_files:
-            self.word_file_combo.addItem(
-                self.word_file_display_text(word_file), word_file
-            )
-        self.word_file_combo.setCurrentIndex(
-            self.word_file_combo.findData(self.current_word_file)
-        )
+        self.populate_word_file_combo()
         self.input_method_combo = QComboBox()
         self.input_method_combo.addItems(self.settings["input_methods"])
         self.input_method_combo.setCurrentText(self.input_method)
@@ -156,10 +173,13 @@ class BlindTyping(QWidget):
         mode_row.addWidget(self.mode_combo)
         mode_row.addWidget(QLabel("次数"))
         mode_row.addWidget(self.practice_times_spin)
+        mode_row.addWidget(self.sample_count_label)
+        mode_row.addWidget(self.sample_count_spin)
         mode_row.addStretch()
 
+        self.word_file_label = QLabel("词表")
         word_file_row = QHBoxLayout()
-        word_file_row.addWidget(QLabel("词表"))
+        word_file_row.addWidget(self.word_file_label)
         word_file_row.addWidget(self.word_file_combo)
         word_file_row.addStretch()
 
@@ -193,12 +213,14 @@ class BlindTyping(QWidget):
         self.setWindowTitle('盲打训练')
         self.mode_combo.currentTextChanged.connect(self.change_mode)
         self.practice_times_spin.valueChanged.connect(self.change_practice_times)
+        self.sample_count_spin.valueChanged.connect(self.change_sample_count)
         self.word_file_combo.currentTextChanged.connect(self.change_word_file)
         self.input_method_combo.currentTextChanged.connect(self.change_input_method)
         self.auto_submit_checkbox.toggled.connect(self.change_auto_submit)
         self.word_preview_checkbox.toggled.connect(self.change_word_preview)
         self.restart_on_error_checkbox.toggled.connect(self.change_restart_on_error)
         self.practice_times_spin.setEnabled(self.current_mode != "单次测速")
+        self.update_sample_count_visibility()
         self.update_practice_display()
         self.show()
 
@@ -231,7 +253,7 @@ class BlindTyping(QWidget):
             self.players.append(player)
 
     def load_config(self):
-        default_modes = ["顺序学习", "乱序巩固", "单次测速"]
+        default_modes = ["顺序学习", "乱序巩固", "单次测速", "随机测试"]
         default_input_methods = [
             "全拼",
             "英文模式",
@@ -267,6 +289,18 @@ class BlindTyping(QWidget):
         except ValueError:
             practice_times = 7
         practice_times = max(1, min(99, practice_times))
+
+        try:
+            random_times = int(settings.get("default_random_times", "2"))
+        except ValueError:
+            random_times = 2
+        random_times = max(1, min(99, random_times))
+
+        try:
+            sample_count = int(settings.get("default_sample_count", "30"))
+        except ValueError:
+            sample_count = 30
+        sample_count = max(1, min(999, sample_count))
 
         true_flags = {"1", "true", "yes", "on", "启用", "开启"}
         false_flags = {"0", "false", "no", "off", "禁用", "关闭"}
@@ -306,6 +340,8 @@ class BlindTyping(QWidget):
         return {
             "default_mode": mode,
             "default_times": practice_times,
+            "default_random_times": random_times,
+            "default_sample_count": sample_count,
             "default_input_method": input_method,
             "default_auto_submit": default_auto_submit,
             "default_restart_on_error": default_restart_on_error,
@@ -357,17 +393,60 @@ class BlindTyping(QWidget):
             return 0
         return -1 if left < right else 1
 
+    @staticmethod
+    def is_pool_file(filename):
+        """词池文件（pool*.txt）仅供随机测试使用，不进入词表下拉框。"""
+        return bool(filename) and filename.lower().startswith("pool")
+
     def list_word_files(self):
         try:
             filenames = [
                 entry.name
                 for entry in os.scandir(self.dict_dir)
-                if entry.is_file() and entry.name.lower().endswith(".txt")
+                if entry.is_file()
+                and entry.name.lower().endswith(".txt")
+                and not self.is_pool_file(entry.name)
             ]
         except OSError as error:
             print(f"Error while reading word list directory: {error}")
             return []
         return sorted(filenames, key=cmp_to_key(self.natural_compare))
+
+    def pool_files(self):
+        """列出词池文件（pool*.txt），只供随机测试模式使用。"""
+        try:
+            filenames = [
+                entry.name
+                for entry in os.scandir(self.dict_dir)
+                if entry.is_file()
+                and entry.name.lower().endswith(".txt")
+                and self.is_pool_file(entry.name)
+            ]
+        except OSError as error:
+            print(f"Error while reading pool directory: {error}")
+            return []
+        return sorted(filenames, key=cmp_to_key(self.natural_compare))
+
+    def populate_word_file_combo(self):
+        """按模式填词表下拉框：普通模式列词表，随机测试只显示词池。"""
+        self.word_file_combo.blockSignals(True)
+        self.word_file_combo.clear()
+        if self.current_mode == "随机测试":
+            for name in self.pool_files():
+                self.word_file_combo.addItem(
+                    self.word_file_display_text(name), name
+                )
+            if self.word_file_combo.count():
+                self.word_file_combo.setCurrentIndex(0)
+        else:
+            for word_file in self.word_files:
+                self.word_file_combo.addItem(
+                    self.word_file_display_text(word_file), word_file
+                )
+            self.word_file_combo.setCurrentIndex(
+                self.word_file_combo.findData(self.current_word_file)
+            )
+        self.word_file_combo.blockSignals(False)
 
     def get_word_file_path(self, filename):
         if not filename or os.path.basename(filename) != filename:
@@ -455,6 +534,8 @@ class BlindTyping(QWidget):
 
     def prepare_practice_words(self):
         """根据当前模式生成统一的练习题目序列。"""
+        self.source_file = self.current_word_file
+        self.source_word_count = len(self.words)
         if self.current_mode == "顺序学习":
             self.practice_words = [
                 word
@@ -463,6 +544,21 @@ class BlindTyping(QWidget):
             ]
         elif self.current_mode == "乱序巩固":
             self.practice_words = self.build_random_practice_words()
+        elif self.current_mode == "随机测试":
+            # 随机测试从词池抽词：下拉框在该模式下只列词池。
+            pool_file = self.selected_word_file() or self.RANDOM_TEST_POOL_FILE
+            pool_words = self.load_words_from_file(pool_file)
+            if pool_words:
+                self.source_file = pool_file
+                self.source_word_count = len(pool_words)
+            else:
+                self.report_word_file_error(
+                    f"随机测试词池不可用：{pool_file}"
+                )
+                pool_words = self.words
+            sample_size = max(1, min(self.sample_count, len(pool_words)))
+            sampled_words = random.sample(pool_words, sample_size)
+            self.practice_words = self.build_random_practice_words(sampled_words)
         else:
             self.practice_words = self.words.copy()
 
@@ -471,10 +567,11 @@ class BlindTyping(QWidget):
             len(word) for word in self.practice_words
         )
 
-    def build_random_practice_words(self):
-        """随机生成题目，并尽量避免相同词连续出现。"""
+    def build_random_practice_words(self, words=None):
+        """随机生成题目，并尽量避免相同词连续出现；未指定词集时使用整个词表。"""
+        source_words = self.words if words is None else words
         remaining = {}
-        for word in self.words:
+        for word in source_words:
             remaining[word] = remaining.get(word, 0) + self.practice_times
 
         practice_words = []
@@ -546,8 +643,24 @@ class BlindTyping(QWidget):
 
     def change_mode(self, mode):
         self.current_mode = mode
+        # 随机测试的次数单独记忆，切模式时取回对应记忆值。
+        target_times = (
+            self.random_times if mode == "随机测试" else self.normal_times
+        )
+        self.practice_times_spin.blockSignals(True)
+        self.practice_times_spin.setValue(target_times)
+        self.practice_times_spin.blockSignals(False)
+        self.practice_times = target_times
         self.practice_times_spin.setEnabled(mode != "单次测速")
+        self.update_sample_count_visibility()
+        self.populate_word_file_combo()
         self.restart_application()
+
+    def update_sample_count_visibility(self):
+        """「词数」只在随机测试模式显示。"""
+        is_random = self.current_mode == "随机测试"
+        self.sample_count_label.setVisible(is_random)
+        self.sample_count_spin.setVisible(is_random)
 
     def selected_word_file(self):
         """下拉框当前项对应的真实文件名；无有效项时返回 None。"""
@@ -588,6 +701,18 @@ class BlindTyping(QWidget):
 
     def change_practice_times(self, value):
         self.practice_times = value
+        self.store_mode_times(value)
+        self.restart_practice()
+
+    def store_mode_times(self, value):
+        """把次数写进当前模式对应的记忆：随机测试独立于其他模式。"""
+        if self.current_mode == "随机测试":
+            self.random_times = value
+        else:
+            self.normal_times = value
+
+    def change_sample_count(self, value):
+        self.sample_count = value
         self.restart_practice()
 
     def change_input_method(self, method):
@@ -610,9 +735,12 @@ class BlindTyping(QWidget):
             os.path.dirname(os.path.abspath(__file__)),
             "config.ini",
         )
+        self.store_mode_times(self.practice_times_spin.value())
         values = {
             "default_mode": self.mode_combo.currentText(),
-            "default_times": str(self.practice_times_spin.value()),
+            "default_times": str(self.normal_times),
+            "default_random_times": str(self.random_times),
+            "default_sample_count": str(self.sample_count_spin.value()),
             "default_input_method": self.input_method_combo.currentText(),
             "default_word_file": self.current_word_file,
             "default_auto_submit": (
@@ -1026,7 +1154,7 @@ class BlindTyping(QWidget):
                 "模式": self.current_mode,
                 "错误就重开": restart_on_error_text,
                 "重复次数": repeat_count,
-                "词表词数": str(len(self.words)).zfill(3),
+                "词表词数": str(self.source_word_count).zfill(3),
                 "总题数": str(self.total_word_count).zfill(3),
                 "字数": str(self.target_character_count).zfill(3),
                 "实际提交字数": str(self.input_character_count).zfill(3),
@@ -1034,7 +1162,7 @@ class BlindTyping(QWidget):
                 "正确": str(self.correct_count).zfill(3),
                 "错误": str(self.mistake_count).zfill(3),
                 "尝试": str(total_attempts).zfill(3),
-                "数据文件": self.current_word_file,
+                "数据文件": self.source_file,
                 "输入法": input_method,
                 "结束": end_text,
                 "会话ID": self.session_id,
