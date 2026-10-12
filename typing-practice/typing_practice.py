@@ -126,6 +126,9 @@ class BlindTyping(QWidget):
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["顺序学习", "乱序巩固", "单次测速", "随机测试"])
         self.mode_combo.setCurrentText(self.current_mode)
+        # 词表可在注释里用「# mode = 1/2」声明默认训练模式：启动/切到该词表时首次生效。
+        if self.current_mode != "随机测试":
+            self.apply_word_file_mode(self.current_word_file)
         self.practice_times_spin = QSpinBox()
         self.practice_times_spin.setRange(1, 99)
         self.practice_times_spin.setValue(self.practice_times)
@@ -532,6 +535,41 @@ class BlindTyping(QWidget):
             return
         self.practice_times_spin.setValue(reps)
 
+    def load_word_file_mode(self, filename):
+        """读取词表声明的默认训练模式；0、缺省或非法值返回 None。
+        1=顺序学习，2=乱序巩固。"""
+        filepath = self.get_word_file_path(filename)
+        if filepath is None:
+            return None
+        mode_map = {1: "顺序学习", 2: "乱序巩固"}
+        try:
+            # utf-8-sig：记事本另存的 UTF-8 文件带 BOM，用它能一并吃掉行首的 BOM。
+            with open(filepath, "r", encoding="utf-8-sig") as file:
+                for line in file:
+                    stripped = line.strip()
+                    if not stripped.startswith("#"):
+                        continue
+                    key, separator, value = stripped.lstrip("#").partition("=")
+                    if not separator or key.strip().casefold() != "mode":
+                        continue
+                    try:
+                        mode_id = int(value.strip())
+                    except ValueError:
+                        return None
+                    return mode_map.get(mode_id)
+        except OSError as error:
+            print(f"Error while reading word file mode: {error}")
+        return None
+
+    def apply_word_file_mode(self, filename):
+        """把词表声明的默认训练模式写入模式控件；0 或未声明时保持不动。"""
+        mode = self.load_word_file_mode(filename)
+        if mode is None:
+            return
+        if self.mode_combo.currentText() != mode:
+            self.mode_combo.setCurrentText(mode)
+        self.current_mode = mode
+
     def prepare_practice_words(self):
         """根据当前模式生成统一的练习题目序列。"""
         self.source_file = self.current_word_file
@@ -697,6 +735,8 @@ class BlindTyping(QWidget):
         self.words = words
         # 在重启应用之前套用词表声明的默认次数，重启时才会写进 config.ini。
         self.apply_word_file_reps(filename)
+        # 词表声明的默认训练模式同样在切换时首次生效（可能直接触发重启）。
+        self.apply_word_file_mode(filename)
         self.restart_application()
 
     def change_practice_times(self, value):
