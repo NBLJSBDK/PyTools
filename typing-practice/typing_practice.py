@@ -1154,7 +1154,7 @@ class BlindTyping(QWidget):
                 "模式": self.current_mode,
                 "错误就重开": restart_on_error_text,
                 "重复次数": repeat_count,
-                "词表词数": str(self.source_word_count).zfill(3),
+                "词表词数": str(self.source_word_count).zfill(4),
                 "总题数": str(self.total_word_count).zfill(3),
                 "字数": str(self.target_character_count).zfill(3),
                 "实际提交字数": str(self.input_character_count).zfill(3),
