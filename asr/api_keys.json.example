@@ -1,0 +1,10 @@
+[
+  {
+    "label": "我的账号",
+    "app_id": "你的AppId",
+    "secret_id": "AKIDxxxxxxxx",
+    "secret_key": "xxxxxxxx",
+    "cos_bucket": "your-bucket-name-1234567890",
+    "cos_region": "ap-guangzhou"
+  }
+]
