@@ -126,9 +126,6 @@ class BlindTyping(QWidget):
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["顺序学习", "乱序巩固", "单次测速", "随机测试"])
         self.mode_combo.setCurrentText(self.current_mode)
-        # 词表可在注释里用「# mode = 1/2」声明默认训练模式：启动/切到该词表时首次生效。
-        if self.current_mode != "随机测试":
-            self.apply_word_file_mode(self.current_word_file)
         self.practice_times_spin = QSpinBox()
         self.practice_times_spin.setRange(1, 99)
         self.practice_times_spin.setValue(self.practice_times)
