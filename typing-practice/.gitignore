@@ -1,0 +1,5 @@
+# 练习记录只在本地保存；需要版本历史时提交到 typing-log 分支
+typing_log.csv
+typing_log.txt
+typing_detail_log.csv
+achievement.txt
